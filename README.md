@@ -1,4 +1,13 @@
 # Quantized_ResNets
+File Structure:
+config.py           # Configuration classes
+quantization.py     # Quantization utilities
+data.py             # Data loading
+model.py            # Model loading and setup
+metrics.py          # Metrics tracking
+eval.py             # Evaluation logic
+utils.py            # General utilities
+main.py             # Main experiment runner
 
 
 
