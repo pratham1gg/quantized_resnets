@@ -1,0 +1,37 @@
+{
+    "folders": [
+        {
+            "name": "quantized_resnets",
+            "path": "."
+        },
+        {
+            "name": "data",
+            "path": "../data"
+        }
+    ],
+    "settings": {
+        "python.defaultInterpreterPath": "/home/pf4636/code/resnet/quantized_resnets/.venv/bin/python",
+        "python.terminal.activateEnvironment": true,
+        "python.analysis.typeCheckingMode": "basic",
+        "python.analysis.extraPaths": [
+            "src"
+        ],
+        "editor.formatOnSave": true,
+        "editor.tabSize": 4,
+        "files.exclude": {
+            "**/__pycache__": true
+        },
+        "search.exclude": {
+            "**/__pycache__": true,
+            "**/.venv": true,
+            "results": true
+        }
+    },
+    "extensions": {
+        "recommendations": [
+            "ms-python.python",
+            "ms-python.vscode-pylance",
+            "ms-toolsai.jupyter",
+        ]
+    }
+}

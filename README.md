@@ -1,4 +1,8 @@
 # Quantized_ResNets
+
+All experiments reported in the thesis are generated exclusively using the code in src/
+
+
 File Structure:
 config.py           # Configuration classes
 quantization.py     # Quantization utilities
