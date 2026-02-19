@@ -1,6 +1,3 @@
-# utils.py
-from __future__ import annotations
-
 import json
 from pathlib import Path
 from typing import Dict, Any
@@ -34,18 +31,28 @@ def _json_safe(obj):
     raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
 
-def save_results(results: Dict[str, Any], cfg: ExperimentConfig, results_dir: str = "experiment_results"):
+def save_results(results: Dict[str, Any], cfg: ExperimentConfig, results_dir: str = "results"):
     """
-    Save experiment results to JSON.
+    Save experiment results to JSON in a structured folder.
 
-    Filename convention:
-      resnet18_{model_precision}_in{input_bits}bit.json
+    Structure:
+      results/
+        resnet18_{precision}_{device}/
+          metrics.json
     """
-    results_path = Path(results_dir)
-    results_path.mkdir(parents=True, exist_ok=True)
+    # Create a unique directory name based on precision and device
+    # e.g., "resnet18_int8_cpu" or "resnet18_fp32_cuda"
+    exp_name = f"resnet18_{cfg.model_precision}_{cfg.device}"
+    
+    # Clean up device string (e.g. 'cuda:0' -> 'cuda')
+    if ":" in exp_name:
+        exp_name = exp_name.split(":")[0]
 
-    filename = f"resnet18_{cfg.model_precision}_in{cfg.input_quant_bits}bit.json"
-    filepath = results_path / filename
+    output_dir = Path(results_dir) / exp_name
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    filename = "metrics.json"
+    filepath = output_dir / filename
 
     # Ensure config is serializable
     if "config" not in results:
@@ -54,10 +61,11 @@ def save_results(results: Dict[str, Any], cfg: ExperimentConfig, results_dir: st
         else:
             results["config"] = cfg.__dict__
 
+    print(f"Saving results to {filepath}...")
     with open(filepath, "w") as f:
         json.dump(results, f, indent=2, default=_json_safe)
 
-    return filepath
+    return str(filepath)
 
 
 def print_results(results: Dict[str, Any]) -> None:

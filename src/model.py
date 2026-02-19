@@ -1,8 +1,8 @@
-# model.py
-from __future__ import annotations
-
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.models as models
+from torchvision.models import ResNet18_Weights
 
 from config import ExperimentConfig
 from quantization import apply_model_precision
@@ -28,12 +28,9 @@ class BasicBlock(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         identity = x
 
-        out = self.conv1(x)
-        out = self.bn1(out)
-        out = F.relu(out, inplace=True)
+        out = F.relu(self.bn1(self.conv1(x)), inplace=True)
+        out = self.bn2(self.conv2(out))
 
-        out = self.conv2(out)
-        out = self.bn2(out)
 
         if self.downsample is not None:
             identity = self.downsample(x)
@@ -44,16 +41,14 @@ class BasicBlock(nn.Module):
 
 
 class ResNet18(nn.Module):
-    def __init__(self, num_classes: int = 1000):
+    def __init__(self, num_classes: int = 1000, pretrained: bool = True):
         super().__init__()
         self.in_c = 64
-
-        self.stem = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False),
-            nn.BatchNorm2d(64),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
-        )
+        
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.bn1   = nn.BatchNorm2d(64)
+        self.relu  = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
         self.layer1 = self._make_layer(out_c=64,  blocks=2, stride=1)
         self.layer2 = self._make_layer(out_c=128, blocks=2, stride=2)
@@ -63,7 +58,14 @@ class ResNet18(nn.Module):
         self.pool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(512 * BasicBlock.expansion, num_classes)
 
-        self._init_weights()
+        if pretrained:
+            if num_classes != 1000:
+                raise ValueError("Pretrained ImageNet weights require num_classes=1000.")
+            sd = models.resnet18(weights=ResNet18_Weights.IMAGENET1K_V1).state_dict()
+            self.load_state_dict(sd)
+        else:
+            self._init_weights()
+
 
     def _make_layer(self, out_c: int, blocks: int, stride: int) -> nn.Sequential:
         layers = []
@@ -85,7 +87,10 @@ class ResNet18(nn.Module):
                 nn.init.zeros_(m.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.stem(x)
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
 
         x = self.layer1(x)
         x = self.layer2(x)
@@ -98,16 +103,7 @@ class ResNet18(nn.Module):
         return x
 
 
-def resnet18(num_classes: int = 1000) -> ResNet18:
-    return ResNet18(num_classes=num_classes)
-
-
-def get_model(cfg: ExperimentConfig) -> nn.Module:
-    """
-    Build ResNet-18 and apply model precision (fp32/fp16).
-    """
-    model = resnet18(num_classes=1000)
-
-    # Apply precision + move to device + eval() (handled inside apply_model_precision)
-    model = apply_model_precision(model, cfg)
+def get_model(cfg: ExperimentConfig, pretrained: bool = True, dataloader=None) -> nn.Module:
+    model = ResNet18(num_classes=1000, pretrained=pretrained)
+    model = apply_model_precision(model, cfg, dataloader=dataloader)
     return model

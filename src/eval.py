@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 import time
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 
 import torch
 import torch.nn as nn
@@ -16,33 +14,31 @@ def evaluate(
     dataloader: torch.utils.data.DataLoader,
     cfg: ExperimentConfig,
     criterion: Optional[nn.Module] = None,
-    ) -> Dict[str, Any]:
+    ) -> MetricsTracker:  
     """
-    Evaluate model and collect metrics (top1/top5, latency, optional loss).
-
-    - criterion: if provided, we compute average loss.
+    Evaluate model and collect metrics. Returns the MetricsTracker object
+    containing full history for plotting.
     """
-    model.eval()
+    #exported PT2E models disallow eval()/train().
     metrics = MetricsTracker()
 
-    # Optional: limit batches (if you have this in config)
     max_batches = getattr(cfg, "num_eval_batches", None)
 
     print(f"Evaluating on {len(dataloader)} batches...")
 
-    with torch.no_grad():
+    with torch.inference_mode():
         for batch_idx, (images, targets) in enumerate(dataloader):
             if max_batches is not None and batch_idx >= max_batches:
                 break
 
             batch_start = time.perf_counter()
 
-            # Move to device
-            images = images.to(cfg.device, non_blocking=True)
-            targets = targets.to(cfg.device, non_blocking=True)
-
-            # Match input dtype to model precision (fp32/fp16)
+            # Move images to the correct device/dtype for the selected precision
             images = ensure_input_dtype_for_model(images, cfg)
+
+            # Move targets to the same device as outputs will be on
+            targets = targets.to(images.device, non_blocking=True)
+
 
             # ----- inference timing -----
             if str(cfg.device).startswith("cuda"):
@@ -80,4 +76,4 @@ def evaluate(
                     f"Infer: {s['infer_ms_avg']:.2f} ms/batch"
                 )
 
-    return metrics.summary()
+    return metrics  

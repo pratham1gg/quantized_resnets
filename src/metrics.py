@@ -1,19 +1,15 @@
-# metrics.py
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, List
 
 import numpy as np
 import torch
 
-
 @dataclass
 class MetricsTracker:
     """
     Tracks:
       - Top-1 / Top-5 accuracy (running + final)
-      - Optional loss
+      - Loss
       - Batch time and pure inference time
       - Stores per-batch values for plotting
     """
@@ -118,6 +114,5 @@ class MetricsTracker:
             "total_samples": int(self.total),
         }
 
-    # Optional: keep backward-compatible name
     def get_metrics(self) -> Dict[str, Any]:
         return self.summary()
