@@ -5,7 +5,7 @@ import torchvision.models as models
 from torchvision.models import ResNet18_Weights
 
 from config import ExperimentConfig
-from quantization import apply_model_precision
+
 
 class BasicBlock(nn.Module):
     expansion = 1
@@ -103,7 +103,5 @@ class ResNet18(nn.Module):
         return x
 
 
-def get_model(cfg: ExperimentConfig, pretrained: bool = True, dataloader=None) -> nn.Module:
-    model = ResNet18(num_classes=1000, pretrained=pretrained)
-    model = apply_model_precision(model, cfg, dataloader=dataloader)
-    return model
+def get_model(cfg, pretrained: bool = True) -> nn.Module:
+    return ResNet18(num_classes=1000, pretrained=pretrained)

@@ -1,130 +1,97 @@
 import json
 from pathlib import Path
-from typing import Dict, Any
-from dataclasses import asdict, is_dataclass
+from typing import Any, Dict, List, Optional, Iterable
 
-from config import ExperimentConfig
+JsonDict = Dict[str, Any]
 
 
-def _json_safe(obj):
+def ensure_dir(p: Path) -> Path:
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def read_json(path: str | Path) -> JsonDict:
+    path = Path(path)
+    with path.open("r") as f:
+        return json.load(f)
+
+
+def write_json(path: str | Path, payload: JsonDict) -> None:
+    path = Path(path)
+    ensure_dir(path.parent)
+    with path.open("w") as f:
+        json.dump(payload, f, indent=2, sort_keys=True)
+
+
+def iter_result_jsons(output_root: str | Path = "./runs") -> Iterable[Path]:
+    root = Path(output_root)
+    if not root.exists():
+        return []
+    return sorted(root.rglob("result.json"))
+
+
+def load_runs(output_root: str | Path = "./runs", *, status: Optional[str] = "ok") -> List[JsonDict]:
+    runs: List[JsonDict] = []
+    for p in iter_result_jsons(output_root):
+        r = read_json(p)
+        if status is None or r.get("status") == status:
+            r["_result_path"] = str(p)
+            r["_run_dir"] = str(p.parent)
+            runs.append(r)
+    return runs
+
+
+def flatten_run(run: JsonDict) -> JsonDict:
     """
-    Make sure we can json.dump results even if they contain numpy / torch types.
+    Flatten your schema into a single row:
+      system.* , cfg.* , res.* , art.*
     """
-    try:
-        import numpy as np
-        if isinstance(obj, (np.integer,)):
-            return int(obj)
-        if isinstance(obj, (np.floating,)):
-            return float(obj)
-        if isinstance(obj, (np.ndarray,)):
-            return obj.tolist()
-    except Exception:
-        pass
+    flat: JsonDict = {
+        "run_id": run.get("run_id"),
+        "status": run.get("status"),
+        "error": run.get("error"),
+        "total_eval_time_sec": run.get("total_eval_time_sec"),
+        "_result_path": run.get("_result_path"),
+        "_run_dir": run.get("_run_dir"),
+    }
 
-    try:
-        import torch
-        if isinstance(obj, torch.Tensor):
-            return obj.detach().cpu().tolist()
-    except Exception:
-        pass
+    for k, v in (run.get("system") or {}).items():
+        flat[f"system.{k}"] = v
+    for k, v in (run.get("config") or {}).items():
+        flat[f"cfg.{k}"] = v
+    for k, v in (run.get("results") or {}).items():
+        flat[f"res.{k}"] = v
+    for k, v in (run.get("artifacts") or {}).items():
+        flat[f"art.{k}"] = v
 
-    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+    return flat
 
 
-def save_results(results: Dict[str, Any], cfg: ExperimentConfig, results_dir: str = "results"):
+def flatten_runs(runs: List[JsonDict]) -> List[JsonDict]:
+    return [flatten_run(r) for r in runs]
+
+
+def print_run_summary(payload: JsonDict) -> None:
     """
-    Save experiment results to JSON in a structured folder.
-
-    Structure:
-      results/
-        resnet18_{precision}_{device}/
-          metrics.json
+    Print from *runner payload* (new schema).
     """
-    # Create a unique directory name based on precision and device
-    # e.g., "resnet18_int8_cpu" or "resnet18_fp32_cuda"
-    exp_name = f"resnet18_{cfg.model_precision}_{cfg.device}"
-    
-    # Clean up device string (e.g. 'cuda:0' -> 'cuda')
-    if ":" in exp_name:
-        exp_name = exp_name.split(":")[0]
+    cfg = payload.get("config", {}) or {}
+    res = payload.get("results", {}) or {}
 
-    output_dir = Path(results_dir) / exp_name
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    filename = "metrics.json"
-    filepath = output_dir / filename
-
-    # Ensure config is serializable
-    if "config" not in results:
-        if is_dataclass(cfg):
-            results["config"] = asdict(cfg)
-        else:
-            results["config"] = cfg.__dict__
-
-    print(f"Saving results to {filepath}...")
-    with open(filepath, "w") as f:
-        json.dump(results, f, indent=2, default=_json_safe)
-
-    return str(filepath)
-
-
-def print_results(results: Dict[str, Any]) -> None:
-    """
-    Pretty print experiment results (keys match MetricsTracker.summary()).
-    """
-    print("\n" + "=" * 70)
-    print("EXPERIMENT RESULTS")
     print("=" * 70)
-
-    print(f"Top-1 Accuracy:        {results['top1_acc']:.2f}%")
-    print(f"Top-5 Accuracy:        {results['top5_acc']:.2f}%")
-
-    if results.get("loss_avg", None) is not None:
-        print(f"Avg Loss:              {results['loss_avg']:.4f}")
-
-    # Times are per-batch in ms (as returned by metrics.summary)
-    if results.get("infer_ms_avg", None) is not None:
-        std = results.get("infer_ms_std", None)
-        if std is not None:
-            print(f"Inference Time:        {results['infer_ms_avg']:.2f} ± {std:.2f} ms/batch")
-        else:
-            print(f"Inference Time:        {results['infer_ms_avg']:.2f} ms/batch")
-
-    if results.get("batch_ms_avg", None) is not None:
-        print(f"Batch Time:            {results['batch_ms_avg']:.2f} ms/batch")
-
-    if results.get("throughput_sps", None) is not None:
-        print(f"Throughput:            {results['throughput_sps']:.2f} samples/sec")
-
-    print(f"Total Samples:         {results['total_samples']}")
-    if "total_eval_time_sec" in results:
-        print(f"Total Eval Time:       {results['total_eval_time_sec']:.2f} sec")
-
-    print("=" * 70 + "\n")
-
-
-def print_config(cfg: ExperimentConfig) -> None:
-    """
-    Pretty print configuration.
-    Only prints fields that exist on cfg.
-    """
+    print(payload.get("run_id", "<no run_id>"))
     print("=" * 70)
-    print("EXPERIMENT CONFIGURATION")
+    print(f"status: {payload.get('status')}")
+    if payload.get("status") != "ok":
+        print(f"error: {payload.get('error')}")
+        print("=" * 70)
+        return
+
+    print(f"backend: {cfg.get('backend')} | precision: {cfg.get('model_precision')} | in_bits: {cfg.get('input_quant_bits')}")
+    print(f"device: {cfg.get('device')} | bs: {cfg.get('batch_size')} | total_samples: {res.get('total_samples')}")
+    print(f"top1: {res.get('top1_acc'):.2f}% | top5: {res.get('top5_acc'):.2f}%")
+    if res.get("infer_ms_avg") is not None:
+        print(f"infer: {res.get('infer_ms_avg'):.2f} ms/batch (std {res.get('infer_ms_std')})")
+    if res.get("throughput_infer_sps") is not None:
+        print(f"throughput_infer: {res.get('throughput_infer_sps'):.2f} samples/s")
     print("=" * 70)
-
-    # core knobs
-    print(f"Model precision:       {getattr(cfg, 'model_precision', 'N/A')}")
-    print(f"Input quantization:    {getattr(cfg, 'input_quant_bits', 'N/A')}-bit")
-
-    # stable settings
-    print(f"Batch size:            {getattr(cfg, 'batch_size', 'N/A')}")
-    print(f"Num workers:           {getattr(cfg, 'num_workers', 'N/A')}")
-    print(f"Device:                {getattr(cfg, 'device', 'N/A')}")
-    print(f"ImageNet path:         {getattr(cfg, 'imagenet_path', 'N/A')}")
-
-    # optional fields (only if present)
-    if hasattr(cfg, "num_eval_batches"):
-        neb = getattr(cfg, "num_eval_batches")
-        print(f"Num eval batches:      {neb if neb is not None else 'All'}")
-
-    print("=" * 70 + "\n")

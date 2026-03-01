@@ -96,6 +96,9 @@ class MetricsTracker:
         batch_times = np.array(self.batch_times_s, dtype=np.float64)
         infer_times = np.array(self.infer_times_s, dtype=np.float64)
 
+        infer_total_time = float(infer_times.sum()) if infer_times.size else 0.0
+        throughput_infer = (self.total / infer_total_time) if infer_total_time > 0 else None
+
         total_time = float(batch_times.sum()) if batch_times.size else 0.0
         throughput = (self.total / total_time) if total_time > 0 else None
 
@@ -108,10 +111,13 @@ class MetricsTracker:
 
             "batch_ms_avg": float(batch_times.mean() * 1000.0) if batch_times.size else None,
             "infer_ms_avg": float(infer_times.mean() * 1000.0) if infer_times.size else None,
-            "infer_ms_std": float(infer_times.std() * 1000.0) if infer_times.size else None,
+            "infer_ms_std": float(infer_times.std() * 1000.0) if infer_times.size else None,   
+            
+            "throughput_infer_sps": float(throughput_infer) if throughput_infer is not None else None, # forward-pass throughput
 
-            "throughput_sps": float(throughput) if throughput is not None else None,
+            "throughput_sps": float(throughput) if throughput is not None else None, # end to end pipeline throughput
             "total_samples": int(self.total),
+            "total_batches": int(len(self.infer_times_s)),
         }
 
     def get_metrics(self) -> Dict[str, Any]:

@@ -1,12 +1,12 @@
 import time
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional
 
 import torch
 import torch.nn as nn
 
 from config import ExperimentConfig
-from quantization import ensure_input_dtype_for_model
 from metrics import MetricsTracker
+from precision import ensure_input_dtype
 
 
 def evaluate(
@@ -14,17 +14,15 @@ def evaluate(
     dataloader: torch.utils.data.DataLoader,
     cfg: ExperimentConfig,
     criterion: Optional[nn.Module] = None,
-    ) -> MetricsTracker:  
-    """
-    Evaluate model and collect metrics. Returns the MetricsTracker object
-    containing full history for plotting.
-    """
-    #exported PT2E models disallow eval()/train().
+) -> MetricsTracker:
+
     metrics = MetricsTracker()
 
-    max_batches = getattr(cfg, "num_eval_batches", None)
+    max_batches = cfg.num_eval_batches
 
-    print(f"Evaluating on {len(dataloader)} batches...")
+    total_batches = len(dataloader)
+    effective_batches = total_batches if max_batches is None else min(total_batches, max_batches)
+    print(f"Evaluating on {effective_batches} batches...")
 
     with torch.inference_mode():
         for batch_idx, (images, targets) in enumerate(dataloader):
@@ -33,24 +31,19 @@ def evaluate(
 
             batch_start = time.perf_counter()
 
-            # Move images to the correct device/dtype for the selected precision
-            images = ensure_input_dtype_for_model(images, cfg)
-
-            # Move targets to the same device as outputs will be on
+            images = ensure_input_dtype(images, cfg)
             targets = targets.to(images.device, non_blocking=True)
 
-
-            # ----- inference timing -----
-            if str(cfg.device).startswith("cuda"):
+            if images.device.type == "cuda":
                 torch.cuda.synchronize()
-            infer_start = time.perf_counter()
 
+            infer_start = time.perf_counter()
             outputs = model(images)
 
-            if str(cfg.device).startswith("cuda"):
+            if images.device.type == "cuda":
                 torch.cuda.synchronize()
+
             infer_time = time.perf_counter() - infer_start
-            # ---------------------------
 
             loss_value = None
             if criterion is not None:
@@ -64,16 +57,15 @@ def evaluate(
                 loss_value=loss_value,
                 batch_time_s=batch_time,
                 infer_time_s=infer_time,
-                batch_size=images.shape[0],
+                batch_size=int(images.shape[0]),
             )
 
-            # simple progress print
             if (batch_idx + 1) % 10 == 0:
                 s = metrics.summary()
                 print(
-                    f"  Batch [{batch_idx + 1}/{len(dataloader)}] "
+                    f"  Batch [{batch_idx + 1}/{effective_batches}] "
                     f"Top-1: {s['top1_acc']:.2f}% | Top-5: {s['top5_acc']:.2f}% | "
                     f"Infer: {s['infer_ms_avg']:.2f} ms/batch"
                 )
 
-    return metrics  
+    return metrics
