@@ -22,7 +22,7 @@ def quantize_int8_x86_pt2e(
     images0, _ = next(iter(calib_loader))
     example_x = images0.contiguous().to("cpu")   # keep same batch shape as calib loader
 
-    exported = export(model, (example_x,))  # or export(...).module() directly
+    exported = export(model, (example_x,))  
 
     quantizer = X86InductorQuantizer()
     quantizer.set_global(get_default_x86_inductor_quantization_config())
