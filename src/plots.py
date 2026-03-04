@@ -46,72 +46,72 @@ def _group_rows(rows: Sequence[Row], keys: Tuple[str, ...]) -> Dict[Tuple[Any, .
     return groups
 
 
-# ----------------------------
-# Per-batch plots (MetricsTracker)
-# ----------------------------
-def plot_accuracy(tracker: MetricsTracker, save_path: Optional[str] = None) -> None:
-    if not tracker.top1_running:
-        print("No accuracy data to plot")
-        return
+# # ----------------------------
+# # Per-batch plots (MetricsTracker)
+# # ----------------------------
+# def plot_accuracy(tracker: MetricsTracker, save_path: Optional[str] = None) -> None:
+#     if not tracker.top1_running:
+#         print("No accuracy data to plot")
+#         return
 
-    fig = plt.figure()
-    plt.plot(tracker.top1_running, label="Top-1")
-    plt.plot(tracker.top5_running, label="Top-5")
-    plt.xlabel("Batch")
-    plt.ylabel("Accuracy (%)")
-    plt.title("Eval Accuracy (running)")
-    plt.legend()
-    plt.tight_layout()
+#     fig = plt.figure()
+#     plt.plot(tracker.top1_running, label="Top-1")
+#     plt.plot(tracker.top5_running, label="Top-5")
+#     plt.xlabel("Batch")
+#     plt.ylabel("Accuracy (%)")
+#     plt.title("Eval Accuracy (running)")
+#     plt.legend()
+#     plt.tight_layout()
 
-    if save_path:
-        _ensure_parent_dir(save_path)
-        plt.savefig(save_path, dpi=200)
+#     if save_path:
+#         _ensure_parent_dir(save_path)
+#         plt.savefig(save_path, dpi=200)
 
-    plt.show()
-    plt.close(fig)
-
-
-def plot_timing(tracker: MetricsTracker, save_path: Optional[str] = None) -> None:
-    if not tracker.infer_times_s:
-        print("No timing data to plot")
-        return
-
-    fig = plt.figure()
-    plt.plot([t * 1000 for t in tracker.infer_times_s], label="Infer (ms)")
-    plt.plot([t * 1000 for t in tracker.batch_times_s], label="Batch total (ms)")
-    plt.xlabel("Batch")
-    plt.ylabel("Time (ms)")
-    plt.title("Timing per batch")
-    plt.legend()
-    plt.tight_layout()
-
-    if save_path:
-        _ensure_parent_dir(save_path)
-        plt.savefig(save_path, dpi=200)
-
-    plt.show()
-    plt.close(fig)
+#     plt.show()
+#     plt.close(fig)
 
 
-def plot_loss(tracker: MetricsTracker, save_path: Optional[str] = None) -> None:
-    if not tracker.losses:
-        print("No loss data to plot")
-        return
+# def plot_timing(tracker: MetricsTracker, save_path: Optional[str] = None) -> None:
+#     if not tracker.infer_times_s:
+#         print("No timing data to plot")
+#         return
 
-    fig = plt.figure()
-    plt.plot(tracker.losses, label="Eval loss")
-    plt.xlabel("Batch")
-    plt.ylabel("Loss")
-    plt.title("Eval Loss")
-    plt.legend()
-    plt.tight_layout()
+#     fig = plt.figure()
+#     plt.plot([t * 1000 for t in tracker.infer_times_s], label="Infer (ms)")
+#     plt.plot([t * 1000 for t in tracker.batch_times_s], label="Batch total (ms)")
+#     plt.xlabel("Batch")
+#     plt.ylabel("Time (ms)")
+#     plt.title("Timing per batch")
+#     plt.legend()
+#     plt.tight_layout()
 
-    if save_path:
-        _ensure_parent_dir(save_path)
-        plt.savefig(save_path, dpi=200)
+#     if save_path:
+#         _ensure_parent_dir(save_path)
+#         plt.savefig(save_path, dpi=200)
 
-    plt.show()
-    plt.close(fig)
+#     plt.show()
+#     plt.close(fig)
+
+
+# def plot_loss(tracker: MetricsTracker, save_path: Optional[str] = None) -> None:
+#     if not tracker.losses:
+#         print("No loss data to plot")
+#         return
+
+#     fig = plt.figure()
+#     plt.plot(tracker.losses, label="Eval loss")
+#     plt.xlabel("Batch")
+#     plt.ylabel("Loss")
+#     plt.title("Eval Loss")
+#     plt.legend()
+#     plt.tight_layout()
+
+#     if save_path:
+#         _ensure_parent_dir(save_path)
+#         plt.savefig(save_path, dpi=200)
+
+#     plt.show()
+#     plt.close(fig)
 
 
 # ----------------------------

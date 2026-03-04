@@ -24,7 +24,7 @@ class ExperimentConfig:
     seed: int = 42
 
     # Experiment knobs
-    input_quant_bits: int = 0                   # {0,8,4,2,1}
+    input_quant_bits: int = 8                   # {8,4,2,1}
     model_precision: Precision = "fp32"         # fp32 / fp16 / int8 / int4 / fp4
     backend: Backend = "pytorch"                # pytorch / torchao_cpu_ptq / tensorrt
 
@@ -55,7 +55,7 @@ class ExperimentConfig:
     def validate(self) -> None:
         cfg = self.normalized()
 
-        if cfg.input_quant_bits not in (0, 1, 2, 4, 8):
+        if cfg.input_quant_bits not in ( 1, 2, 4, 8):
             raise ValueError(f"input_quant_bits must be one of (8,4,2), got {cfg.input_quant_bits}")
 
         if cfg.batch_size <= 0:

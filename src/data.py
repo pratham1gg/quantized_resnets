@@ -11,7 +11,7 @@ class Quantize01:
     # Quantization of Input
     def __init__(self, num_bits: int | None):
         if num_bits is None or int(num_bits) == 0:
-            self.num_bits = None
+            self.num_bits = 8
             return
 
         num_bits = int(num_bits)
