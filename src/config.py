@@ -34,14 +34,16 @@ class ExperimentConfig:
     cpu_calib_split: str = "val"
 
     # Output control
-    output_root: str = "./runs"                       # canonical single output root
+    output_root: str = "../runs"                       # canonical single output root
 
     # TensorRT-specific (safe defaults)
     trt_opset: int = 1
     trt_static_shape: bool = True
     trt_workspace_mb: int = 2048
-    trt_int8: bool = False                      # turn on INT8 builder
-    trt_calib_num_batches: int = 32             # calibration subset size
+    # TRT precision is driven by model_precision: "fp32"|"fp16"|"int8"|"fp8"|"int4"
+    # INT8 is the only mode that needs a calibrator (runner.py wires it up automatically)
+    # FP8 and INT4 require a QDQ-annotated ONNX from modelopt — no calibrator needed
+    trt_calib_num_batches: int = 32             # used only for INT8 calibration
     trt_calib_seed: int = 42
     trt_engine_tag: str = ""                    # optional suffix, not required
 
@@ -75,12 +77,11 @@ class ExperimentConfig:
                 raise ValueError("backend='torchao_cpu_ptq' expects model_precision='int8'.")
 
         if cfg.backend == "tensorrt":
-            # You can run engine inference on CUDA device; keep it explicit.
             if not cfg.device.startswith("cuda"):
                 raise ValueError("backend='tensorrt' requires device='cuda'.")
-            # In TensorRT, precision is controlled by builder flags; keep model_precision mostly descriptive.
-            if cfg.model_precision not in ("fp32", "fp16", "int8", "int4", "fp4"):
-                raise ValueError(f"Unknown model_precision for tensorrt: {cfg.model_precision}")
+            if cfg.model_precision not in ("fp32", "fp16", "int8", "fp8", "int4"):
+                raise ValueError(f"Unsupported precision for tensorrt: '{cfg.model_precision}'. "
+                                 f"Expected one of: fp32, fp16, int8, fp8, int4.")
 
         if cfg.model_precision == "fp16" and not cfg.device.startswith("cuda"):
             raise ValueError("model_precision='fp16' is intended for CUDA (device='cuda').")
@@ -98,9 +99,6 @@ class ExperimentConfig:
             f"bs{cfg.batch_size}",
         ]
         if cfg.backend == "tensorrt":
-            # capture TRT precision intent deterministically
-            if cfg.trt_int8:
-                parts.append(f"cal{cfg.trt_calib_num_batches}b")
             if cfg.trt_engine_tag:
                 parts.append(cfg.trt_engine_tag)
         return "_".join(parts)

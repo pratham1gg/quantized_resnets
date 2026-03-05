@@ -1,27 +1,40 @@
 from pathlib import Path
 import torch
-from torch.onnx import TrainingMode, export
+import torch.nn as nn
 
-from model import get_model
-from config import ExperimentConfig
 
-cfg = ExperimentConfig()
-model = get_model(cfg, pretrained=True)
+class ONNXExporter:
+    def __init__(self, model: nn.Module, device: str, onnx_path: str | Path):
+        self.model     = model
+        self.device    = torch.device(device)
+        self.onnx_path = Path(onnx_path)
 
-# Export
-model.eval()
-model.to(cfg.device, dtype=torch.float32)
-dummy = torch.randn(1, 3, 224, 224, device=cfg.device, dtype=torch.float32)
+    def export_model(
+        self,
+        opset_version: int = 17,
+        dynamic_batch: bool = True,
+        dummy_input_shape: tuple = (1, 3, 224, 224),
+    ) -> Path:
+        self.model.eval().to(self.device)
+        self.onnx_path.parent.mkdir(parents=True, exist_ok=True)
 
-with torch.no_grad():
-    export(
-        model, (dummy,), "resnet18.onnx",
-        training=TrainingMode.EVAL,
-        input_names=["images"],
-        output_names=["logits"],
-        export_params=True,
-        do_constant_folding=True,
-        opset_version=17,
-    )
+        dummy = torch.randn(*dummy_input_shape, device=self.device, dtype=torch.float32)
 
-print("Model exported to resnet18.onnx")
+        # Only mark batch dim as dynamic if requested
+        dynamic_axes = {"images": {0: "batch"}, "logits": {0: "batch"}} if dynamic_batch else None
+
+        print(f"[onnx_exporter] Exporting to {self.onnx_path} ...")
+        with torch.no_grad():
+            torch.onnx.export(
+                self.model, (dummy,), str(self.onnx_path),
+                input_names=["images"],
+                output_names=["logits"],
+                opset_version=opset_version,
+                dynamic_axes=dynamic_axes,
+                export_params=True,
+                do_constant_folding=True,
+                training=torch.onnx.TrainingMode.EVAL,
+            )
+
+        print(f"[onnx_exporter] Saved ({self.onnx_path.stat().st_size / 1e6:.1f} MB)")
+        return self.onnx_path

@@ -1,7 +1,7 @@
 import json
 import time
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -15,20 +15,118 @@ from eval import evaluate
 from metrics import MetricsTracker
 
 
-def _ensure_run_dir(cfg: ExperimentConfig) -> Path:
-    d = cfg.run_dir()
-    d.mkdir(parents=True, exist_ok=True)
-    (d / "artifacts").mkdir(parents=True, exist_ok=True)
-    return d
-
-
 def _save_result_json(payload: Dict[str, Any], cfg: ExperimentConfig) -> str:
-    _ensure_run_dir(cfg)
     path = cfg.result_json_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
-        json.dump(payload, f, indent=2, sort_keys=True) #Payload: JSON record of one experiment run
-
+        json.dump(payload, f, indent=2, sort_keys=True)
     return str(path)
+
+
+def _get_trt_paths(cfg: ExperimentConfig) -> Tuple[Path, Path, Path]:
+    """
+    Return (onnx_path, engine_path, calib_cache_path).
+    Anchored to repo root so paths don't depend on CWD.
+
+    ONNX file selected by precision:
+      fp32 / fp16 / int8  -> resnet18.onnx              (plain export, INT8 uses calibrator)
+      fp8  / int4         -> resnet18_<prec>_qdq.onnx   (QDQ-annotated, from modelopt)
+    """
+    repo_root  = Path(cfg.output_root).resolve().parent
+    onnx_dir   = repo_root / "onnx"
+    engine_dir = repo_root / "engines"
+
+    # fp8 and int4 need a QDQ-annotated ONNX from modelopt.
+    # fp32 / fp16 / int8 all use the plain exported ONNX.
+    if cfg.model_precision in ("fp8", "int4"):
+        onnx_name = f"resnet18_{cfg.model_precision}_qdq.onnx"
+    else:
+        onnx_name = "resnet18.onnx"
+
+    onnx_path   = onnx_dir   / onnx_name
+    engine_path = engine_dir / f"{cfg.run_id()}.engine"
+    calib_cache = engine_dir / f"{cfg.run_id()}.calib_cache"
+
+    onnx_dir.mkdir(parents=True, exist_ok=True)
+    engine_dir.mkdir(parents=True, exist_ok=True)
+    return onnx_path, engine_path, calib_cache
+
+
+def _run_tensorrt(
+    cfg: ExperimentConfig,
+    split: str,
+    criterion: Optional[nn.Module],
+) -> Tuple[Dict[str, Any], MetricsTracker]:
+    """3-step TRT pipeline: ONNX export → engine build → inference."""
+    from onnx_exporter import ONNXExporter
+    from trt_builder import build_engine, Int8EntropyCalibrator
+    from trt_infer import trt_evaluate
+
+    onnx_path, engine_path, calib_cache = _get_trt_paths(cfg)
+
+    # Step 1: Export to ONNX (skip if already done)
+    if not onnx_path.exists():
+        print("[runner] Step 1/3 — Exporting to ONNX ...")
+        model = get_model(cfg, pretrained=True)
+        ONNXExporter(model, cfg.device, onnx_path).export_model(
+            opset_version     = cfg.trt_opset if cfg.trt_opset > 1 else 17,
+            dynamic_batch     = True,  # must be True so TRT optimization profile works
+            dummy_input_shape = (1, 3, 224, 224),  # always 1 for tracing; batch size is set by the dynamic axis
+        )
+    else:
+        print(f"[runner] Step 1/3 — ONNX exists, skipping: {onnx_path}")
+
+    # Step 2: Build TRT engine (skip if already done)
+    if not engine_path.exists():
+        print(f"[runner] Step 2/3 — Building TRT engine (precision={cfg.model_precision}) ...")
+
+        # FP8/INT4 QDQ ONNXes from modelopt may have a fixed batch dim.
+        # Warn early if it doesn't match cfg.batch_size so the user knows
+        # to re-export from modelopt with the correct batch size.
+        if cfg.model_precision in ("fp8", "int4") and onnx_path.exists():
+            import onnx
+            onnx_model  = onnx.load(str(onnx_path), load_external_data=False)
+            onnx_batch  = onnx_model.graph.input[0].type.tensor_type.shape.dim[0].dim_value
+            if onnx_batch not in (0, cfg.batch_size):  # 0 means dynamic in ONNX proto
+                print(f"[runner] WARNING: {onnx_path.name} has fixed batch={onnx_batch} "
+                      f"but cfg.batch_size={cfg.batch_size}. "
+                      f"Re-export from modelopt with batch_size={cfg.batch_size} for correct behaviour.")
+
+        # INT8 is the only mode that needs a calibrator from our side.
+        # FP8 and INT4 get their quantization scales from Q/DQ nodes in the ONNX.
+        calibrator = None
+        if cfg.model_precision == "int8":
+            calibrator = Int8EntropyCalibrator(
+                dataloader  = get_dataloader(cfg, split=cfg.cpu_calib_split),
+                cache_file  = calib_cache,
+                num_batches = cfg.trt_calib_num_batches,
+                device      = cfg.device,
+            )
+
+        build_engine(
+            onnx_path    = onnx_path,
+            engine_path  = engine_path,
+            precision    = cfg.model_precision,   # "fp32"|"fp16"|"int8"|"fp8"|"int4"
+            batch_size   = cfg.batch_size,
+            workspace_mb = cfg.trt_workspace_mb,
+            calibrator   = calibrator,
+        )
+    else:
+        print(f"[runner] Step 2/3 — Engine exists, skipping: {engine_path}")
+
+    # Step 3: Run inference
+    print("[runner] Step 3/3 — Running TRT inference ...")
+    tracker = trt_evaluate(engine_path, cfg, get_dataloader(cfg, split=split), criterion)
+
+    payload = {
+        "status" : "ok",
+        "run_id" : cfg.run_id(),
+        "system" : cfg.stamp(),
+        "config" : cfg.to_dict(),
+        "results": tracker.summary(),
+        "error"  : None,
+    }
+    return payload, tracker
 
 
 def run_experiment(
@@ -39,8 +137,8 @@ def run_experiment(
     use_torch_compile: bool = False,
 ) -> Tuple[Dict[str, Any], Optional[MetricsTracker]]:
     """
-    Unified experiment runner. Notebooks call this.
-    Returns: (result_payload, metrics tracker (opt))
+    Main entry point called by notebooks.
+    Routes to the correct backend and returns (result_dict, MetricsTracker).
     """
     cfg = cfg.normalized()
     cfg.validate()
@@ -49,69 +147,46 @@ def run_experiment(
     if criterion is None:
         criterion = nn.CrossEntropyLoss()
 
+    tracker: Optional[MetricsTracker] = None
     t0 = time.perf_counter()
 
-    # ---- Backend routing ----
     if cfg.backend == "pytorch":
+        model  = apply_precision(get_model(cfg), cfg)
         loader = get_dataloader(cfg, split=split)
-        model = get_model(cfg)
-        model = apply_precision(model, cfg)
-
-        if use_torch_compile and str(cfg.device).startswith("cuda"):
+        if use_torch_compile and cfg.device.startswith("cuda"):
             model = torch.compile(model)
-
         tracker = evaluate(model, loader, cfg, criterion=criterion)
-        results = tracker.summary()
-
-        payload: Dict[str, Any] = { 
-            "status": "ok",
-            "run_id": cfg.run_id(),
-            "system": cfg.stamp(),
-            "config": cfg.to_dict(),
-            "results": results,
-            "artifacts": {},
-            "error": None,
-        } 
-    elif cfg.backend == "torchao_cpu_ptq":
-        eval_loader = get_dataloader(cfg, split=split)
-        calib_loader = get_dataloader(cfg, split=cfg.cpu_calib_split)
-        model = get_model(cfg)
-        model = quantize_int8_x86_pt2e(model, calib_loader, calib_num_batches=cfg.cpu_calib_num_batches)  # make configurable later
-
-        tracker = evaluate(model, eval_loader, cfg, criterion=criterion)
-        results = tracker.summary()
-
         payload = {
-            "status": "ok",
-            "run_id": cfg.run_id(),
-            "system": cfg.stamp(),
-            "config": cfg.to_dict(),
-            "results": results,
-            "artifacts": {},
-            "error": None,
+            "status" : "ok",
+            "run_id" : cfg.run_id(),
+            "system" : cfg.stamp(),
+            "config" : cfg.to_dict(),
+            "results": tracker.summary(),
+            "error"  : None,
+        }
+
+    elif cfg.backend == "torchao_cpu_ptq":
+        model   = quantize_int8_x86_pt2e(get_model(cfg), get_dataloader(cfg, split=cfg.cpu_calib_split), calib_num_batches=cfg.cpu_calib_num_batches)
+        tracker = evaluate(model, get_dataloader(cfg, split=split), cfg, criterion=criterion)
+        payload = {
+            "status" : "ok",
+            "run_id" : cfg.run_id(),
+            "system" : cfg.stamp(),
+            "config" : cfg.to_dict(),
+            "results": tracker.summary(),
+            "error"  : None,
         }
 
     elif cfg.backend == "tensorrt":
-        # Stub for now. We'll implement via:
-        # export_onnx.py -> trt_build.py -> trt_infer.py
-        payload = {
-            "status": "error",
-            "run_id": cfg.run_id(),
-            "system": cfg.stamp(),
-            "config": cfg.to_dict(),
-            "results": {},
-            "artifacts": {},
-            "error": "TensorRT backend not implemented yet in runner.py",
-        }
-        tracker = None
+        payload, tracker = _run_tensorrt(cfg, split=split, criterion=criterion)
 
     else:
-        raise ValueError(f"Unknown backend: {cfg.backend}")
+        raise ValueError(f"Unknown backend: '{cfg.backend}'")
 
-    payload["total_eval_time_sec"] = float(time.perf_counter() - t0)
+    payload["total_eval_time_sec"] = round(time.perf_counter() - t0, 3)
 
     if save_results_flag:
         saved = _save_result_json(payload, cfg)
-        print(f"[saved] {saved}")
+        print(f"[runner] Results saved: {saved}")
 
     return payload, tracker
