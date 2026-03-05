@@ -1,5 +1,4 @@
 {
-  "artifacts": {},
   "config": {
     "backend": "pytorch",
     "batch_size": 1,
@@ -9,38 +8,37 @@
     "imagenet_path": "/home/pf4636/imagenet2",
     "input_quant_bits": 8,
     "model_precision": "fp32",
-    "num_eval_batches": 100,
+    "num_eval_batches": 1000,
     "num_workers": 8,
-    "output_root": "./runs",
+    "output_root": "../runs",
     "seed": 42,
     "trt_calib_num_batches": 32,
     "trt_calib_seed": 42,
     "trt_engine_tag": "",
-    "trt_int8": false,
     "trt_opset": 1,
     "trt_static_shape": true,
     "trt_workspace_mb": 2048
   },
   "error": null,
   "results": {
-    "batch_ms_avg": 4.159993318608031,
-    "infer_ms_avg": 3.8288924226071686,
-    "infer_ms_std": 2.6554830579619093,
-    "loss_avg": 0.5789524589186431,
-    "throughput_infer_sps": 261.17213272841974,
-    "throughput_sps": 240.38500146788903,
-    "top1_acc": 85.0,
-    "top5_acc": 96.0,
-    "total_batches": 100,
-    "total_samples": 100
+    "batch_ms_avg": 3.0938793300883844,
+    "infer_ms_avg": 2.8321111518889666,
+    "infer_ms_std": 1.3138376581861655,
+    "loss_avg": 0.5785120139865572,
+    "throughput_infer_sps": 353.09348622599725,
+    "throughput_sps": 323.2188115014274,
+    "top1_acc": 84.8,
+    "top5_acc": 95.9,
+    "total_batches": 1000,
+    "total_samples": 1000
   },
   "run_id": "resnet18_pytorch_fp32_in8b_cuda_bs1",
   "status": "ok",
   "system": {
     "cuda_available": true,
     "device": "cuda",
-    "timestamp": "2026-03-03 17:02:55",
+    "timestamp": "2026-03-05 21:15:52",
     "torch": "2.10.0+cu128"
   },
-  "total_eval_time_sec": 2.408985410933383
+  "total_eval_time_sec": 5.919
 }
