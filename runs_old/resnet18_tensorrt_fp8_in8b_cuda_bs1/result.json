@@ -1,0 +1,44 @@
+{
+  "config": {
+    "backend": "tensorrt",
+    "batch_size": 1,
+    "cpu_calib_num_batches": 10,
+    "cpu_calib_split": "val",
+    "device": "cuda",
+    "imagenet_path": "/home/pf4636/imagenet2",
+    "input_quant_bits": 8,
+    "model_precision": "fp8",
+    "num_eval_batches": 1000,
+    "num_workers": 8,
+    "output_root": "../runs",
+    "seed": 42,
+    "trt_calib_num_batches": 32,
+    "trt_calib_seed": 42,
+    "trt_engine_tag": "",
+    "trt_opset": 1,
+    "trt_static_shape": true,
+    "trt_workspace_mb": 2048
+  },
+  "error": null,
+  "results": {
+    "batch_ms_avg": 0.7195204097079113,
+    "infer_ms_avg": 0.506196704111062,
+    "infer_ms_std": 0.1992124967717569,
+    "loss_avg": 0.5785871131793329,
+    "throughput_infer_sps": 1975.516616126752,
+    "throughput_sps": 1389.8146411245639,
+    "top1_acc": 84.7,
+    "top5_acc": 95.9,
+    "total_batches": 1000,
+    "total_samples": 1000
+  },
+  "run_id": "resnet18_tensorrt_fp8_in8b_cuda_bs1",
+  "status": "ok",
+  "system": {
+    "cuda_available": true,
+    "device": "cuda",
+    "timestamp": "2026-03-05 20:59:57",
+    "torch": "2.10.0+cu128"
+  },
+  "total_eval_time_sec": 3.922
+}

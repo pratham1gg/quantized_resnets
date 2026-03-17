@@ -49,14 +49,18 @@ def trt_evaluate(
     print(f"[trt_infer] Engine: {engine_path}")
     print(f"[trt_infer] Input: '{in_name}'  Output: '{out_name}'  Dynamic batch: {is_dynamic}")
 
-    metrics     = MetricsTracker()
-    max_batches = cfg.num_eval_batches
-    effective   = len(dataloader) if max_batches is None else min(len(dataloader), max_batches)
-    print(f"[trt_infer] Evaluating {effective} batches ...")
+    metrics        = MetricsTracker()
+    max_batches    = cfg.num_eval_batches
+    warmup_batches = 30
+    effective      = len(dataloader) if max_batches is None else min(len(dataloader), max_batches)
+    print(f"[trt_infer] Evaluating {effective} batches (first {warmup_batches} are warmup) ...")
 
     for batch_idx, (images, targets) in enumerate(dataloader):
         if max_batches is not None and batch_idx >= max_batches:
             break
+
+        if batch_idx == warmup_batches:
+            print(f"[trt_infer] --- Warmup complete ({warmup_batches} batches) — starting metric collection ---")
 
         batch_start = time.perf_counter()
         images  = images.to(dtype=torch.float32, device=device, non_blocking=True)
@@ -96,16 +100,17 @@ def trt_evaluate(
         logits     = out_buf[:actual_bs]
         loss_value = float(criterion(logits, targets).item()) if criterion else None
 
-        metrics.update(
-            outputs      = logits.clone(),
-            targets      = targets,
-            loss_value   = loss_value,
-            batch_time_s = batch_time,
-            infer_time_s = infer_time,
-            batch_size   = actual_bs,
-        )
+        if batch_idx >= warmup_batches:
+            metrics.update(
+                outputs      = logits.clone(),
+                targets      = targets,
+                loss_value   = loss_value,
+                batch_time_s = batch_time,
+                infer_time_s = infer_time,
+                batch_size   = actual_bs,
+            )
 
-        if (batch_idx + 1) % 10 == 0:
+        if batch_idx >= warmup_batches and (batch_idx + 1) % 10 == 0:
             s = metrics.summary()
             print(f"  [{batch_idx + 1}/{effective}]  "
                   f"Top-1: {s['top1_acc']:.2f}%  "

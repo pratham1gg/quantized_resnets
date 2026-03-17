@@ -7,6 +7,9 @@
         {
             "name": "data",
             "path": "/home/pf4636/imagenet2"
+        },
+        {
+            "path": "../../../imagenet"
         }
     ],
     "settings": {

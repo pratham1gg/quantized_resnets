@@ -8,7 +8,7 @@
     "imagenet_path": "/home/pf4636/imagenet2",
     "input_quant_bits": 1,
     "model_precision": "fp16",
-    "num_eval_batches": 1000,
+    "num_eval_batches": 500,
     "num_workers": 8,
     "output_root": "../runs",
     "seed": 42,
@@ -21,24 +21,26 @@
   },
   "error": null,
   "results": {
-    "batch_ms_avg": 3.3829587136860937,
-    "infer_ms_avg": 3.0456477033440024,
-    "infer_ms_std": 1.4931478864681702,
-    "loss_avg": 9.120642700195312,
-    "throughput_infer_sps": 328.33738416365065,
-    "throughput_sps": 295.59923269367766,
-    "top1_acc": 0.8,
-    "top5_acc": 4.6,
-    "total_batches": 1000,
-    "total_samples": 1000
+    "batch_ms_avg": 4.35640745835894,
+    "infer_ms_avg": 3.79820754058025,
+    "infer_ms_max": 55.74198090471327,
+    "infer_ms_min": 1.2683500535786152,
+    "infer_ms_std": 3.639597280555196,
+    "loss_avg": 8.333298963181516,
+    "throughput_infer_sps": 263.28208485606626,
+    "throughput_sps": 229.54693966498266,
+    "top1_acc": 1.2765957446808511,
+    "top5_acc": 7.659574468085107,
+    "total_batches": 470,
+    "total_samples": 470
   },
   "run_id": "resnet18_pytorch_fp16_in1b_cuda_bs1",
   "status": "ok",
   "system": {
     "cuda_available": true,
     "device": "cuda",
-    "timestamp": "2026-03-05 21:17:12",
+    "timestamp": "2026-03-12 23:08:22",
     "torch": "2.10.0+cu128"
   },
-  "total_eval_time_sec": 5.919
+  "total_eval_time_sec": 6.091
 }

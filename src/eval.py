@@ -16,18 +16,21 @@ def evaluate(
     criterion: Optional[nn.Module] = None,
 ) -> MetricsTracker:
 
-    metrics = MetricsTracker()
-
-    max_batches = cfg.num_eval_batches
+    metrics        = MetricsTracker()
+    max_batches    = cfg.num_eval_batches
+    warmup_batches = 30
 
     total_batches = len(dataloader)
     effective_batches = total_batches if max_batches is None else min(total_batches, max_batches)
-    print(f"Evaluating on {effective_batches} batches...")
+    print(f"Evaluating on {effective_batches} batches (first {warmup_batches} are warmup)...")
 
     with torch.inference_mode():
         for batch_idx, (images, targets) in enumerate(dataloader):
             if max_batches is not None and batch_idx >= max_batches:
                 break
+
+            if batch_idx == warmup_batches:
+                print(f"  --- Warmup complete ({warmup_batches} batches) — starting metric collection ---")
 
             batch_start = time.perf_counter()
 
@@ -51,16 +54,17 @@ def evaluate(
 
             batch_time = time.perf_counter() - batch_start
 
-            metrics.update(
-                outputs=outputs,
-                targets=targets,
-                loss_value=loss_value,
-                batch_time_s=batch_time,
-                infer_time_s=infer_time,
-                batch_size=int(images.shape[0]),
-            )
+            if batch_idx >= warmup_batches:
+                metrics.update(
+                    outputs=outputs,
+                    targets=targets,
+                    loss_value=loss_value,
+                    batch_time_s=batch_time,
+                    infer_time_s=infer_time,
+                    batch_size=int(images.shape[0]),
+                )
 
-            if (batch_idx + 1) % 10 == 0:
+            if batch_idx >= warmup_batches and (batch_idx + 1) % 10 == 0:
                 s = metrics.summary()
                 print(
                     f"  Batch [{batch_idx + 1}/{effective_batches}] "

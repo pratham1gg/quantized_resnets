@@ -166,10 +166,7 @@ def build_engine(
 
     elif precision == "int8":
         config.set_flag(trt.BuilderFlag.INT8)
-        if calibrator is not None:
-            config.int8_calibrator = calibrator
-        else:
-            print("[trt_builder] NOTE: No calibrator given — assuming QDQ-annotated ONNX.")
+        config.set_flag(trt.BuilderFlag.FP16)
 
     elif precision == "fp8":
         # FP8 scales come from Q/DQ nodes in the ONNX (modelopt output)

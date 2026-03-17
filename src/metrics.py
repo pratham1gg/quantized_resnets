@@ -111,6 +111,8 @@ class MetricsTracker:
 
             "batch_ms_avg": float(batch_times.mean() * 1000.0) if batch_times.size else None,
             "infer_ms_avg": float(infer_times.mean() * 1000.0) if infer_times.size else None,
+            "infer_ms_min": float(infer_times.min() * 1000.0) if infer_times.size else None,
+            "infer_ms_max": float(infer_times.max() * 1000.0) if infer_times.size else None,
             "infer_ms_std": float(infer_times.std() * 1000.0) if infer_times.size else None,   
             
             "throughput_infer_sps": float(throughput_infer) if throughput_infer is not None else None, # forward-pass throughput

@@ -8,7 +8,7 @@
     "imagenet_path": "/home/pf4636/imagenet2",
     "input_quant_bits": 8,
     "model_precision": "int4",
-    "num_eval_batches": 1000,
+    "num_eval_batches": 500,
     "num_workers": 8,
     "output_root": "../runs",
     "seed": 42,
@@ -21,24 +21,24 @@
   },
   "error": null,
   "results": {
-    "batch_ms_avg": 0.6937652732012793,
-    "infer_ms_avg": 0.48358371073845774,
-    "infer_ms_std": 0.19764006946767787,
-    "loss_avg": 0.5786878194205233,
-    "throughput_infer_sps": 2067.8943020494785,
-    "throughput_sps": 1441.409708193731,
-    "top1_acc": 84.7,
-    "top5_acc": 95.9,
-    "total_batches": 1000,
-    "total_samples": 1000
+    "batch_ms_avg": 0.7404097985040317,
+    "infer_ms_avg": 0.5078281637558595,
+    "infer_ms_std": 0.19045569323522257,
+    "loss_avg": 0.8058236377909713,
+    "throughput_infer_sps": 1969.1700290981778,
+    "throughput_sps": 1350.6034118139169,
+    "top1_acc": 77.87234042553192,
+    "top5_acc": 94.04255319148936,
+    "total_batches": 470,
+    "total_samples": 470
   },
   "run_id": "resnet18_tensorrt_int4_in8b_cuda_bs1",
   "status": "ok",
   "system": {
     "cuda_available": true,
     "device": "cuda",
-    "timestamp": "2026-03-05 21:00:01",
+    "timestamp": "2026-03-12 19:33:36",
     "torch": "2.10.0+cu128"
   },
-  "total_eval_time_sec": 3.915
+  "total_eval_time_sec": 3.216
 }
