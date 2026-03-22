@@ -26,7 +26,8 @@ PIL.ImageFile.LOAD_TRUNCATED_IMAGES = True
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.cuda.amp import GradScaler, autocast
+from torch.amp.grad_scaler import GradScaler
+from torch.amp.autocast_mode import autocast
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms
 from tqdm import tqdm
@@ -48,7 +49,6 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--weight-decay",   default=1e-4, type=float)
     p.add_argument("--workers",        default=8,    type=int)
     p.add_argument("--num-classes",    default=100,  type=int)
-    p.add_argument("--fraction",       default=0.1,  type=float)
     p.add_argument("--dropout",        default=0.0,  type=float)
     p.add_argument("--resume",         default=None, type=str)
     p.add_argument("--checkpoint-dir", default="checkpoints")
@@ -73,26 +73,10 @@ def set_seed(seed: int) -> None:
 # Data
 # ---------------------------------------------------------------------------
 
-def subset_dataset(dataset: datasets.ImageFolder, num_classes: int, fraction: float) -> Subset:
-    """Keep only the first `num_classes` classes and `fraction` of each class's samples."""
-    # ImageFolder sorts classes alphabetically; pick first num_classes
+def subset_dataset(dataset: datasets.ImageFolder, num_classes: int) -> Subset:
+    """Keep all samples from the first `num_classes` classes."""
     kept_classes = set(range(num_classes))
-
-    # Group sample indices by class
-    from collections import defaultdict
-    class_to_indices: dict[int, list[int]] = defaultdict(list)
-    for idx, (_, label) in enumerate(dataset.samples):
-        if label in kept_classes:
-            class_to_indices[label].append(idx)
-
-    # Take fraction of each class (at least 1 sample)
-    selected: list[int] = []
-    for label in sorted(class_to_indices):
-        indices = class_to_indices[label]
-        n = max(1, int(len(indices) * fraction))
-        selected.extend(indices[:n])
-
-    # Remap targets so labels are 0..num_classes-1 (they already are if we kept first N)
+    selected = [idx for idx, (_, label) in enumerate(dataset.samples) if label in kept_classes]
     return Subset(dataset, selected)
 
 
@@ -120,9 +104,9 @@ def get_dataloaders(args: argparse.Namespace):
     train_dataset = datasets.ImageFolder(os.path.join(args.data, "train"), train_transform)
     val_dataset   = datasets.ImageFolder(os.path.join(args.data, "val"),   val_transform)
 
-    if args.num_classes < 1000 or args.fraction < 1.0:
-        train_dataset = subset_dataset(train_dataset, args.num_classes, args.fraction)
-        val_dataset   = subset_dataset(val_dataset,   args.num_classes, args.fraction)
+    if args.num_classes < 1000:
+        train_dataset = subset_dataset(train_dataset, args.num_classes)
+        val_dataset   = subset_dataset(val_dataset,   args.num_classes)
 
     train_loader = DataLoader(
         train_dataset, batch_size=args.batch_size,
@@ -133,7 +117,7 @@ def get_dataloaders(args: argparse.Namespace):
         shuffle=False, num_workers=args.workers, pin_memory=True,
     )
 
-    print(f"[Data] Train: {len(train_dataset):,} samples  (classes={args.num_classes}, fraction={args.fraction})")
+    print(f"[Data] Train: {len(train_dataset):,} samples  (classes={args.num_classes})")
     print(f"[Data] Val  : {len(val_dataset):,} samples")
     return train_loader, val_loader
 
@@ -165,7 +149,7 @@ def train_one_epoch(
 
         optimizer.zero_grad(set_to_none=True)
 
-        with autocast():                        # mixed-precision forward
+        with autocast(device_type="cuda"):                        # mixed-precision forward
             outputs = model(images)
             loss    = criterion(outputs, labels)
 
@@ -207,7 +191,7 @@ def validate(
         images = images.to(device, non_blocking=True)
         labels = labels.to(device, non_blocking=True)
 
-        with autocast():
+        with autocast(device_type="cuda"):
             outputs = model(images)
             loss    = criterion(outputs, labels)
 

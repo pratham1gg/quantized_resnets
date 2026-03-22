@@ -1,0 +1,68 @@
+* Soll ich die Ergebnisse mit pretrained Gewichte weglassen oder in der Ausarbeitung trzdm schreiben?
+* Was soll ich mit PyTorch Ergebnisse machen? theoretisch trt Ergebnisse sind wichtigste.
+* 
+
+Working pipeline for me 
+Weights -> PTQ Results -> PTQ Plots -> QAT training -> QAT Results -> QAT Plots -> 
+
+
+
+Plots: using backend.errorbarplot from matplotlib (.pgf)
+
+1.  Inference Latency vs input_quant_bits 
+    - for each network precision
+    - X: input_quant_bits (1, 2, 4, 8)
+    - Y: infer_ms_avg ± std (errorbars)
+
+    Q: does input quantization affect speed?
+
+2. Inference Latency vs model_precision (all the model precision)
+    - for best input_quant_bits
+    - X: model_precision (fp8, fp16, fp32, int4, int8)
+    - Y: infer_ms_avg ± std (errorbars)
+
+    Q: which precision is fastest?
+
+3. Top-1 & Top-5 Accuracy vs input_quant_bits
+    - for each network precision
+    - X: input_quant_bits
+    - Y: accuracy (top1 solid, top5 dashed)
+     ############ check other options no curve
+
+    Q: accuracy tradeoff with input quantization
+
+4. Accuracy vs Latency satter with errorbars
+    - One point per (backend, precision, input_bits) combo
+    - X: infer_ms_avg ± std (horizontal errorbars)
+    - Y: top1_acc
+
+    Q: which configs have good accuracy AND low latency?
+
+5. Picking the best ones from accuracy vs latency
+    - basically magnification
+
+    Q: for better visualisation
+
+6. Ranked Latency chart (best configs at top) but grouped by input_bits
+    - Horizontal errorbar chart, sorted ascending by latency
+    - Each row = one (backend, precision, input_bits) config
+    - Error bars ± std, colored by backend
+    - contains their respective times
+
+    Q: what is the single fastest config?
+
+
+7. Delta Plot and also Delta Column
+
+
+8. Speedup vs baseline
+
+
+9. verlust bar plots accuracy vs network precision
+
+
+
+
+
+note about accuracy inaccuracies because of every run has 
+show example using a basic 5 epochs and use that std deviation and make a sub chatpter which contains uncertaintines 
