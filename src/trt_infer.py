@@ -1,3 +1,25 @@
+"""
+TensorRT inference and evaluation loop for quantized ResNet models.
+
+Loads a serialised ``.trt`` / ``.engine`` file, runs the ImageNet eval loop
+using the TensorRT execution context, and returns a ``MetricsTracker`` with
+accuracy and latency statistics.
+
+Both static-batch and dynamic-batch engines are supported:
+- Dynamic engines: input shape is set per-batch via ``set_input_shape``.
+- Static engines: the last (undersized) batch is zero-padded to match the
+  engine's fixed batch dimension, and the extra rows are trimmed before
+  metric accumulation.
+
+The first ``warmup_batches`` (default 30) batches are excluded from metrics
+to avoid cold-start GPU timing noise.
+
+Functions
+---------
+trt_evaluate -- Load a TRT engine and run the full evaluation loop.
+"""
+
+
 import time
 from pathlib import Path
 from typing import Optional

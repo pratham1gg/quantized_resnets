@@ -20,6 +20,10 @@ import os
 import random
 import time
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
 import numpy as np
 import PIL.ImageFile
 PIL.ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -32,7 +36,7 @@ from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms
 from tqdm import tqdm
 
-from resnet18 import get_model
+from model import ResNet18
 
 
 # ---------------------------------------------------------------------------
@@ -241,10 +245,11 @@ if __name__ == "__main__":
 
     train_loader, val_loader = get_dataloaders(args)
 
-    model  = get_model(num_classes=args.num_classes, dropout=args.dropout).to(device)
-    counts = model.count_params()
-    print(f"[Model] Total params    : {counts['total']:,}")
-    print(f"[Model] Trainable params: {counts['trainable']:,}")
+    model  = ResNet18(num_classes=args.num_classes, pretrained=False).to(device)
+    total     = sum(p.numel() for p in model.parameters())
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"[Model] Total params    : {total:,}")
+    print(f"[Model] Trainable params: {trainable:,}")
 
     criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
 

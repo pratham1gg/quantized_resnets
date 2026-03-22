@@ -24,15 +24,15 @@ class BasicBlock(nn.Module):
                                stride=1, padding=1, bias=False)
         self.bn2   = nn.BatchNorm2d(out_c)
 
-        self.shortcut: nn.Module | None = None
+        self.downsample: nn.Module | None = None
         if stride != 1 or in_c != out_c:
-            self.shortcut = nn.Sequential(
+            self.downsample = nn.Sequential(
                 nn.Conv2d(in_c, out_c, kernel_size=1, stride=stride, bias=False),
                 nn.BatchNorm2d(out_c),
             )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        identity = self.shortcut(x) if self.shortcut is not None else x
+        identity = self.downsample(x) if self.downsample is not None else x
 
         out = F.relu(self.bn1(self.conv1(x)), inplace=True)
         out = self.bn2(self.conv2(out))
@@ -58,19 +58,17 @@ class ResNet18(nn.Module):
 
         self._in_c = 64
 
-        self.stem = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False),
-            nn.BatchNorm2d(64),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
-        )
+        self.conv1   = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.bn1     = nn.BatchNorm2d(64)
+        self.relu    = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
         self.layer1 = self._make_stage(out_c=64,  blocks=2, stride=1)
         self.layer2 = self._make_stage(out_c=128, blocks=2, stride=2)
         self.layer3 = self._make_stage(out_c=256, blocks=2, stride=2)
         self.layer4 = self._make_stage(out_c=512, blocks=2, stride=2)
 
-        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.pool    = nn.AdaptiveAvgPool2d((1, 1))
         self.dropout = nn.Dropout(p=dropout)
         self.fc      = nn.Linear(512 * BasicBlock.expansion, num_classes)
 

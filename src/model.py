@@ -103,5 +103,24 @@ class ResNet18(nn.Module):
         return x
 
 
-def get_model(cfg, pretrained: bool = True) -> nn.Module:
-    return ResNet18(num_classes=1000, pretrained=pretrained)
+def get_model(
+    cfg,
+    pretrained: bool = False,
+    checkpoint_path: str | None = None,
+) -> nn.Module:
+    """
+    Load a ResNet-18 with one of two weight sources:
+
+    - Default: custom checkpoint saved by train_resnet18/train.py, 100 classes.
+      Loads from ``checkpoint_path`` if given, otherwise ``checkpoints/best.pth``.
+      The checkpoint is expected to be a dict with a ``"model"`` key.
+    - ``pretrained=True``: ImageNet-1K torchvision weights, 1000 classes.
+    """
+    if pretrained:
+        return ResNet18(num_classes=1000, pretrained=True)
+    path = checkpoint_path or "/home/pf4636/code/resnet/quantized_resnets/checkpoints/best.pth"
+    model = ResNet18(num_classes=100, pretrained=False)
+    ckpt = torch.load(path, map_location="cpu")
+    state_dict = ckpt["model"] if "model" in ckpt else ckpt
+    model.load_state_dict(state_dict)
+    return model

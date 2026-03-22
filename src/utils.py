@@ -1,3 +1,19 @@
+"""
+Utility helpers for reading, writing, and summarising experiment result JSONs.
+
+Functions
+---------
+ensure_dir        -- Create a directory (and parents) if it does not exist.
+read_json         -- Load a JSON file into a dict.
+write_json        -- Serialise a dict to a JSON file, creating parent dirs as needed.
+iter_result_jsons -- Yield all ``result.json`` paths under an output root, sorted.
+load_runs         -- Load all result JSONs under a root, optionally filtered by status.
+flatten_run       -- Collapse a run payload into a single flat dict (system/cfg/res/art).
+flatten_runs      -- Apply ``flatten_run`` to a list of runs.
+print_run_summary -- Pretty-print key metrics from a runner payload to stdout.
+"""
+
+
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Iterable

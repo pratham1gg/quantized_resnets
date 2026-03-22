@@ -1,3 +1,30 @@
+# =============================================================================
+# runner.py — Experiment entry point
+#
+# Workflow
+# --------
+# run_experiment(cfg) routes to one of three backends:
+#
+#   1. pytorch
+#      get_model → apply_precision (fp32/fp16) → evaluate
+#
+#   2. torchao_cpu_ptq
+#      get_model → quantize_int8_x86_pt2e (INT8 calibration on CPU) → evaluate
+#
+#   3. tensorrt  (_run_tensorrt)
+#      Step 1 — ONNX export (skipped if file already exists)
+#               fp32/fp16      → resnet18.onnx  (plain export)
+#               int8/fp8/int4  → resnet18_<prec>_qdq.onnx  (QDQ-annotated, pre-built by modelopt)
+#      Step 2 — TRT engine build (skipped if .engine file already exists)
+#               All quantized modes (int8/fp8/int4) read their scales from Q/DQ nodes in the ONNX.
+#               No runtime calibrator is needed.
+#               Engine filename encodes run_id (precision + batch size + device) so
+#               different configs never overwrite each other.
+#      Step 3 — Inference via trt_evaluate
+#
+# Results are written to runs/<run_id>/result.json.
+# =============================================================================
+
 import json
 import time
 from pathlib import Path
@@ -29,16 +56,16 @@ def _get_trt_paths(cfg: ExperimentConfig) -> Tuple[Path, Path, Path]:
     Anchored to repo root so paths don't depend on CWD.
 
     ONNX file selected by precision:
-      fp32 / fp16 / int8  -> resnet18.onnx              (plain export, INT8 uses calibrator)
-      fp8  / int4         -> resnet18_<prec>_qdq.onnx   (QDQ-annotated, from modelopt)
+      fp32 / fp16         -> resnet18.onnx              (plain export)
+      int8 / fp8 / int4   -> resnet18_<prec>_qdq.onnx   (QDQ-annotated, from modelopt)
     """
     repo_root  = Path(cfg.output_root).resolve().parent
     onnx_dir   = repo_root / "onnx"
     engine_dir = repo_root / "engines"
 
-    # fp8 and int4 need a QDQ-annotated ONNX from modelopt.
-    # fp32 / fp16 / int8 all use the plain exported ONNX.
-    if cfg.model_precision in ("fp8", "int4"):
+    # int8, fp8, and int4 all use a QDQ-annotated ONNX from modelopt.
+    # fp32 / fp16 use the plain exported ONNX.
+    if cfg.model_precision in ("int8", "fp8", "int4"):
         onnx_name = f"resnet18_{cfg.model_precision}_qdq.onnx"
     else:
         onnx_name = "resnet18.onnx"
@@ -59,7 +86,7 @@ def _run_tensorrt(
 ) -> Tuple[Dict[str, Any], MetricsTracker]:
     """3-step TRT pipeline: ONNX export → engine build → inference."""
     from onnx_exporter import ONNXExporter
-    from trt_builder import build_engine, Int8EntropyCalibrator
+    from trt_builder import build_engine
     from trt_infer import trt_evaluate
 
     onnx_path, engine_path, calib_cache = _get_trt_paths(cfg)
@@ -67,7 +94,7 @@ def _run_tensorrt(
     # Step 1: Export to ONNX (skip if already done)
     if not onnx_path.exists():
         print("[runner] Step 1/3 — Exporting to ONNX ...")
-        model = get_model(cfg, pretrained=True)
+        model = get_model(cfg)
         ONNXExporter(model, cfg.device, onnx_path).export_model(
             opset_version     = cfg.trt_opset if cfg.trt_opset > 1 else 17,
             dynamic_batch     = True,  # must be True so TRT optimization profile works
@@ -80,10 +107,10 @@ def _run_tensorrt(
     if not engine_path.exists():
         print(f"[runner] Step 2/3 — Building TRT engine (precision={cfg.model_precision}) ...")
 
-        # FP8/INT4 QDQ ONNXes from modelopt may have a fixed batch dim.
+        # INT8/FP8/INT4 QDQ ONNXes from modelopt may have a fixed batch dim.
         # Warn early if it doesn't match cfg.batch_size so the user knows
         # to re-export from modelopt with the correct batch size.
-        if cfg.model_precision in ("fp8", "int4") and onnx_path.exists():
+        if cfg.model_precision in ("int8", "fp8", "int4") and onnx_path.exists():
             import onnx
             onnx_model  = onnx.load(str(onnx_path), load_external_data=False)
             onnx_batch  = onnx_model.graph.input[0].type.tensor_type.shape.dim[0].dim_value
@@ -92,24 +119,15 @@ def _run_tensorrt(
                       f"but cfg.batch_size={cfg.batch_size}. "
                       f"Re-export from modelopt with batch_size={cfg.batch_size} for correct behaviour.")
 
-        # INT8 is the only mode that needs a calibrator from our side.
-        # FP8 and INT4 get their quantization scales from Q/DQ nodes in the ONNX.
-        calibrator = None
-        if cfg.model_precision == "int8":
-            calibrator = Int8EntropyCalibrator(
-                dataloader  = get_dataloader(cfg, split=cfg.cpu_calib_split),
-                cache_file  = calib_cache,
-                num_batches = cfg.trt_calib_num_batches,
-                device      = cfg.device,
-            )
-
+        # All quantized modes (int8, fp8, int4) get their scales from Q/DQ nodes
+        # in the modelopt-annotated ONNX — no runtime calibrator needed.
         build_engine(
             onnx_path    = onnx_path,
             engine_path  = engine_path,
             precision    = cfg.model_precision,   # "fp32"|"fp16"|"int8"|"fp8"|"int4"
             batch_size   = cfg.batch_size,
             workspace_mb = cfg.trt_workspace_mb,
-            calibrator   = calibrator,
+            calibrator   = None,
         )
     else:
         print(f"[runner] Step 2/3 — Engine exists, skipping: {engine_path}")
