@@ -1,4 +1,5 @@
 .venv/
 .vscode/
-misc/
 __pycache__/
+checkpoints/
+engines/
