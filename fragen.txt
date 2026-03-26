@@ -9,57 +9,58 @@ Weights -> PTQ Results -> PTQ Plots -> QAT training -> QAT Results -> QAT Plots 
 
 Plots: using backend.errorbarplot from matplotlib (.pgf)
 
-1.  Inference Latency vs input_quant_bits 
-    - for each network precision
-    - X: input_quant_bits (1, 2, 4, 8)
-    - Y: infer_ms_avg ± std (errorbars)
+Plot 1 — Inference latency vs input_quant_bits
+        X input_quant_bits (1, 2, 4, 8) 
+        Y infer_ms_avg ± std (errorbar lines, backend.errorbar)
+        Bar one per network precision (fp8, fp16, fp32, int4, int8)
+    Q does input quantization affect speed?
 
-    Q: does input quantization affect speed?
+Plot 2 — Inference latency vs model_precision
+        X model_precision (fp8, fp16, fp32, int4, int8) — categorical
+        Y infer_ms_avg ± std (errorbar, best input_quant_bits only)
+        Filter subset to best-performing input_quant_bits from Plot 1
+    Q which precision is fastest?
 
-2. Inference Latency vs model_precision (all the model precision)
-    - for best input_quant_bits
-    - X: model_precision (fp8, fp16, fp32, int4, int8)
-    - Y: infer_ms_avg ± std (errorbars)
+Plot 3 — Top-1 & Top-5 accuracy vs input_quant_bits
+        X input_quant_bits (1, 2, 4, 8)
+        Y accuracy (%) — two series per precision
+        Encoding top-1 solid marker, top-5 dashed marker
+        Lines one pair per network precision (same color, different dash)
+    Q accuracy tradeoff with input quantization?
 
-    Q: which precision is fastest?
+Plot 4 — Accuracy vs latency scatter (all configs)
+        X infer_ms_avg ± std (horizontal errorbars)
+        Y top1_acc
+        Points one per (backend, precision, input_bits) combination
+    Q which configs have good accuracy AND low latency?
 
-3. Top-1 & Top-5 Accuracy vs input_quant_bits
-    - for each network precision
-    - X: input_quant_bits
-    - Y: accuracy (top1 solid, top5 dashed)
-     ############ check other options no curve
+Plot 5 — Pareto zoom (best-of accuracy vs latency)
+        Source Plot 4, zoomed into Pareto-front region
+        Axis limits clipped to top-N configs by (high acc, low latency)
+        Annotations config labels on each point
+    Q better visualisation of the best candidates
 
-    Q: accuracy tradeoff with input quantization
+Plot 6 — Ranked latency chart (grouped by input_bits)
+    Orientation horizontal errorbar chart
+        X infer_ms_avg ± std (errorbars) plus values written 
+        Y (rows) (backend, precision, input_bits) config — sorted asc by latency plus infer_ms_avg written in the bar
 
-4. Accuracy vs Latency satter with errorbars
-    - One point per (backend, precision, input_bits) combo
-    - X: infer_ms_avg ± std (horizontal errorbars)
-    - Y: top1_acc
+    Color by input_bits · Grouping by backend (facets or row separators) (light for the low input bits and high for int bit 8)
+    Q what is the single fastest config?
 
-    Q: which configs have good accuracy AND low latency?
+Plot 7 — Delta plot + delta column
+    Chart diverging bar or dot plot (Δ from baseline config)
+    pytorch fp32 input bits: int8 is the baseline
+        X Δ infer_ms_avg (negative = faster than baseline)
+        Y rows all configs, same order as Plot 6
+    Column numeric Δ ms and Δ % appended to ranked table
+    Q how much faster/slower vs reference?
 
-5. Picking the best ones from accuracy vs latency
-    - basically magnification
-
-    Q: for better visualisation
-
-6. Ranked Latency chart (best configs at top) but grouped by input_bits
-    - Horizontal errorbar chart, sorted ascending by latency
-    - Each row = one (backend, precision, input_bits) config
-    - Error bars ± std, colored by backend
-    - contains their respective times
-
-    Q: what is the single fastest config?
-
-
-7. Delta Plot and also Delta Column
-
-
-8. Speedup vs baseline
-
-
-9. verlust bar plots accuracy vs network precision
-
+Plot 8 — Speedup vs baseline
+        X config (same as Plot 6 rows, or subset)
+        Y speedup ratio = baseline_ms / config_ms (1.0 line = no change)
+    Reference line horizontal at y = 1 labeled "baseline"
+    Q how many × faster than baseline?
 
 
 

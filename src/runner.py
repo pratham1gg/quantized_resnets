@@ -185,7 +185,7 @@ def run_experiment(
 
     elif cfg.backend == "torchao_cpu_ptq":
         model   = quantize_int8_x86_pt2e(get_model(cfg), get_dataloader(cfg, split=cfg.cpu_calib_split), calib_num_batches=cfg.cpu_calib_num_batches)
-        tracker = evaluate(model, get_dataloader(cfg, split=split), cfg, criterion=criterion)
+        tracker = evaluate(model, get_dataloader(cfg, split=split ), cfg, criterion=criterion)
         payload = {
             "status" : "ok",
             "run_id" : cfg.run_id(),
