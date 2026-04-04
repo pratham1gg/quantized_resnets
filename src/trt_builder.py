@@ -1,7 +1,5 @@
 from pathlib import Path
-from typing import Optional
 
-import torch
 import tensorrt as trt
 
 # ---------------------------------------------------------------------------
@@ -36,49 +34,6 @@ _LOGGER = _PythonLogger()
 
 
 # ---------------------------------------------------------------------------
-# INT8 Calibrator  (only needed for INT8 without Q/DQ nodes in ONNX)
-# FP8 and INT4 don't need a calibrator — scales live in the ONNX Q/DQ nodes
-# ---------------------------------------------------------------------------
-
-class Int8EntropyCalibrator(trt.IInt8EntropyCalibrator2):
-    """Feeds batches from a DataLoader to TensorRT's INT8 calibration."""
-
-    def __init__(self, dataloader, cache_file: str | Path, num_batches: int, device: str):
-        super().__init__()
-        self.dataloader  = iter(dataloader)
-        self.cache_file  = Path(cache_file)
-        self.num_batches = num_batches
-        self.device      = torch.device(device)
-        self.batch_count = 0
-        self._buf        = None  # keeps tensor alive while TRT reads the pointer
-
-    def get_batch_size(self) -> int:
-        return 0  # TRT infers batch size from get_batch()
-
-    def get_batch(self, names):
-        if self.batch_count >= self.num_batches:
-            return None
-        try:
-            images, _ = next(self.dataloader)
-        except StopIteration:
-            return None
-        self._buf = images.to(dtype=torch.float32, device=self.device).contiguous()
-        self.batch_count += 1
-        return [int(self._buf.data_ptr())]
-
-    def read_calibration_cache(self):
-        if self.cache_file.exists():
-            print(f"[trt_builder] Loading calibration cache: {self.cache_file}")
-            return self.cache_file.read_bytes()
-        return None
-
-    def write_calibration_cache(self, cache):
-        self.cache_file.parent.mkdir(parents=True, exist_ok=True)
-        self.cache_file.write_bytes(cache)
-        print(f"[trt_builder] Calibration cache saved: {self.cache_file}")
-
-
-# ---------------------------------------------------------------------------
 # Engine builder
 #
 # Precision modes and how they work:
@@ -86,8 +41,8 @@ class Int8EntropyCalibrator(trt.IInt8EntropyCalibrator2):
 #   fp16  — standard FP16 layer fusion. TRT selects FP16 kernels where safe.
 #           No calibration needed.
 #
-#   int8  — PTQ via entropy calibration. Requires an Int8EntropyCalibrator
-#           (passed in via `calibrator`), OR a QDQ-annotated ONNX from modelopt.
+#   int8  — PTQ via QDQ-annotated ONNX (e.g. from modelopt). Scales are baked
+#           into the graph.
 #
 #   fp8   — Requires TRT 9.0+ and a QDQ-annotated ONNX (e.g. from modelopt).
 #           Scales are baked into the graph — no calibrator needed here.
@@ -104,14 +59,12 @@ def build_engine(
     precision: str = "fp32",        # "fp32" | "fp16" | "int8" | "fp8" | "int4"
     batch_size: int = 1,            # max (and optimal) batch size for the engine profile
     workspace_mb: int = 2048,
-    calibrator: Optional[trt.IInt8Calibrator] = None,
 ) -> Path:
     """
     Build a TensorRT engine from an ONNX file and save it to disk.
 
-    For int8  -> pass an Int8EntropyCalibrator (or use a QDQ-annotated ONNX).
-    For fp8   -> ONNX must have FP8 Q/DQ nodes (e.g. from modelopt). No calibrator.
-    For int4  -> ONNX must have INT4 Q/DQ nodes (e.g. from modelopt). No calibrator.
+    For int8/fp8/int4 -> ONNX must have Q/DQ nodes (e.g. from modelopt). Scales are
+    baked into the graph — no calibrator needed.
     """
     onnx_path   = Path(onnx_path)
     engine_path = Path(engine_path)
@@ -149,6 +102,9 @@ def build_engine(
 
     config = builder.create_builder_config()
     config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, workspace_mb * (1 << 20))
+
+    # *** ADDED: bake full layer detail into the engine for inspector queries ***
+    config.profiling_verbosity = trt.ProfilingVerbosity.DETAILED
 
     # Optimization profile defines the batch size range TRT compiles for.
     # For fixed-batch ONNX (modelopt exports): min=opt=max=fixed batch.

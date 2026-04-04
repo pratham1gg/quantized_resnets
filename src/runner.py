@@ -127,7 +127,6 @@ def _run_tensorrt(
             precision    = cfg.model_precision,   # "fp32"|"fp16"|"int8"|"fp8"|"int4"
             batch_size   = cfg.batch_size,
             workspace_mb = cfg.trt_workspace_mb,
-            calibrator   = None,
         )
     else:
         print(f"[runner] Step 2/3 — Engine exists, skipping: {engine_path}")
