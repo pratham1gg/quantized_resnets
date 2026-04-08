@@ -19,9 +19,12 @@ Precision = Literal["fp32", "fp16", "int8", "int4", "fp4"]
 class ExperimentConfig:
     imagenet_path: str = "/home/pf4636/imagenet2"
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
-    batch_size: int = 256
+    batch_size: int = 1
     num_workers: int = 8
     seed: int = 42
+
+    # Dataset control
+    num_classes: int = 100                       # restrict eval to first N ImageNet classes
 
     # Experiment knobs
     input_quant_bits: int = 8                   # {8,4,2,1}

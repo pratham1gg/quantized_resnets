@@ -1,0 +1,113 @@
+[Epoch 1/15]  lr=1.00e-04
+Epoch 1 [train]: 100%|██████████| 506/506 [02:27<00:00,  3.43it/s]
+[val]: 100%|██████████| 20/20 [00:06<00:00,  2.96it/s]
+  Train  loss=0.9285  acc=97.38%
+  Val    loss=1.4845  top1=78.42%  top5=93.84%
+------------------------------------------------------------
+  [Checkpoint] Best QAT model → /home/pf4636/code/resnet/quantized_resnets/checkpoints/resnet18_qat_int8_in8b_cuda_bs256/qat_phase1_best.pth
+
+[Epoch 2/15]  lr=9.89e-05
+Epoch 2 [train]: 100%|██████████| 506/506 [02:25<00:00,  3.48it/s]
+[val]: 100%|██████████| 20/20 [00:06<00:00,  3.13it/s]
+  Train  loss=0.9190  acc=97.47%
+  Val    loss=1.4800  top1=78.38%  top5=93.90%
+------------------------------------------------------------
+
+[Epoch 3/15]  lr=9.57e-05
+Epoch 3 [train]: 100%|██████████| 506/506 [02:24<00:00,  3.50it/s]
+[val]: 100%|██████████| 20/20 [00:06<00:00,  3.15it/s]
+  Train  loss=0.9147  acc=97.59%
+  Val    loss=1.4799  top1=78.48%  top5=93.86%
+------------------------------------------------------------
+  [Checkpoint] Best QAT model → /home/pf4636/code/resnet/quantized_resnets/checkpoints/resnet18_qat_int8_in8b_cuda_bs256/qat_phase1_best.pth
+
+[Epoch 4/15]  lr=9.05e-05
+Epoch 4 [train]: 100%|██████████| 506/506 [02:25<00:00,  3.48it/s]
+[val]: 100%|██████████| 20/20 [00:06<00:00,  3.05it/s]
+  Train  loss=0.9124  acc=97.55%
+  Val    loss=1.4757  top1=78.48%  top5=93.96%
+------------------------------------------------------------
+
+[Epoch 5/15]  lr=8.35e-05
+Epoch 5 [train]: 100%|██████████| 506/506 [02:25<00:00,  3.48it/s]
+[val]: 100%|██████████| 20/20 [00:06<00:00,  3.15it/s]
+  Train  loss=0.9106  acc=97.62%
+  Val    loss=1.4771  top1=78.72%  top5=93.94%
+------------------------------------------------------------
+  [Checkpoint] Best QAT model → /home/pf4636/code/resnet/quantized_resnets/checkpoints/resnet18_qat_int8_in8b_cuda_bs256/qat_phase1_best.pth
+
+[Epoch 6/15]  lr=7.50e-05
+Epoch 6 [train]: 100%|██████████| 506/506 [02:24<00:00,  3.49it/s]
+[val]: 100%|██████████| 20/20 [00:06<00:00,  3.20it/s]
+  Train  loss=0.9096  acc=97.62%
+  Val    loss=1.4781  top1=78.72%  top5=93.80%
+------------------------------------------------------------
+
+[Epoch 7/15]  lr=6.55e-05
+Epoch 7 [train]: 100%|██████████| 506/506 [02:24<00:00,  3.49it/s]
+[val]: 100%|██████████| 20/20 [00:06<00:00,  3.18it/s]
+  Train  loss=0.9085  acc=97.67%
+  Val    loss=1.4786  top1=78.76%  top5=93.84%
+------------------------------------------------------------
+  [Checkpoint] Best QAT model → /home/pf4636/code/resnet/quantized_resnets/checkpoints/resnet18_qat_int8_in8b_cuda_bs256/qat_phase1_best.pth
+
+[Epoch 8/15]  lr=5.52e-05
+Epoch 8 [train]: 100%|██████████| 506/506 [02:23<00:00,  3.52it/s]
+[val]: 100%|██████████| 20/20 [00:06<00:00,  3.15it/s]
+  Train  loss=0.9078  acc=97.68%
+  Val    loss=1.4795  top1=78.78%  top5=93.90%
+------------------------------------------------------------
+  [Checkpoint] Best QAT model → /home/pf4636/code/resnet/quantized_resnets/checkpoints/resnet18_qat_int8_in8b_cuda_bs256/qat_phase1_best.pth
+
+[Epoch 9/15]  lr=4.48e-05
+Epoch 9 [train]: 100%|██████████| 506/506 [02:25<00:00,  3.47it/s]
+[val]: 100%|██████████| 20/20 [00:06<00:00,  3.12it/s]
+  Train  loss=0.9069  acc=97.71%
+  Val    loss=1.4798  top1=78.54%  top5=93.90%
+------------------------------------------------------------
+
+[Epoch 10/15]  lr=3.45e-05
+Epoch 10 [train]: 100%|██████████| 506/506 [02:26<00:00,  3.45it/s]
+[val]: 100%|██████████| 20/20 [00:06<00:00,  3.07it/s]
+  Train  loss=0.9067  acc=97.70%
+  Val    loss=1.4767  top1=78.90%  top5=94.02%
+------------------------------------------------------------
+  [Checkpoint] Best QAT model → /home/pf4636/code/resnet/quantized_resnets/checkpoints/resnet18_qat_int8_in8b_cuda_bs256/qat_phase1_best.pth
+
+[Epoch 11/15]  lr=2.50e-05
+Epoch 11 [train]: 100%|██████████| 506/506 [02:26<00:00,  3.45it/s]
+[val]: 100%|██████████| 20/20 [00:06<00:00,  3.13it/s]
+  Train  loss=0.9061  acc=97.71%
+  Val    loss=1.4803  top1=78.96%  top5=93.86%
+------------------------------------------------------------
+  [Checkpoint] Best QAT model → /home/pf4636/code/resnet/quantized_resnets/checkpoints/resnet18_qat_int8_in8b_cuda_bs256/qat_phase1_best.pth
+
+[Epoch 12/15]  lr=1.65e-05
+Epoch 12 [train]: 100%|██████████| 506/506 [02:25<00:00,  3.47it/s]
+[val]: 100%|██████████| 20/20 [00:06<00:00,  3.12it/s]
+  Train  loss=0.9062  acc=97.71%
+  Val    loss=1.4785  top1=78.78%  top5=93.90%
+------------------------------------------------------------
+
+[Epoch 13/15]  lr=9.55e-06
+Epoch 13 [train]: 100%|██████████| 506/506 [02:25<00:00,  3.48it/s]
+[val]: 100%|██████████| 20/20 [00:06<00:00,  3.11it/s]
+  Train  loss=0.9056  acc=97.73%
+  Val    loss=1.4783  top1=78.88%  top5=94.02%
+------------------------------------------------------------
+
+[Epoch 14/15]  lr=4.32e-06
+Epoch 14 [train]: 100%|██████████| 506/506 [02:25<00:00,  3.48it/s]
+[val]: 100%|██████████| 20/20 [00:06<00:00,  3.08it/s]
+  Train  loss=0.9056  acc=97.73%
+  Val    loss=1.4773  top1=78.92%  top5=93.92%
+------------------------------------------------------------
+
+[Epoch 15/15]  lr=1.09e-06
+Epoch 15 [train]: 100%|██████████| 506/506 [02:25<00:00,  3.48it/s]
+[val]: 100%|██████████| 20/20 [00:06<00:00,  3.08it/s]  Train  loss=0.9058  acc=97.73%
+  Val    loss=1.4787  top1=78.94%  top5=93.80%
+------------------------------------------------------------
+
+QAT COMPLETE — Best val top-1: 78.960%
+Best weights saved to: /home/pf4636/code/resnet/quantized_resnets/checkpoints/resnet18_qat_int8_in8b_cuda_bs256/qat_phase1_best.pth

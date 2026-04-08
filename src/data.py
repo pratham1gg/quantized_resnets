@@ -46,11 +46,23 @@ def build_imagenet_transform(cfg: ExperimentConfig) -> T.Compose:
     )
 
 def build_imagenet_dataset(cfg: ExperimentConfig, split: str):
-    return torchvision.datasets.ImageNet(
+    dataset = torchvision.datasets.ImageNet(
         root=cfg.imagenet_path,
         split=split,
         transform=build_imagenet_transform(cfg),
     )
+    if cfg.num_classes < 1000:
+        keep = [(path, cls) for path, cls in dataset.samples if cls < cfg.num_classes]
+        if not keep:
+            raise ValueError(
+                f"No samples found for num_classes={cfg.num_classes}. "
+                "Check that the ImageNet root contains the expected classes."
+            )
+        dataset.samples = keep
+        dataset.imgs    = keep
+        dataset.targets = [cls for _, cls in keep]
+        print(f"[data] Filtered to {len(keep)} samples across {cfg.num_classes} classes.")
+    return dataset
     
 def get_dataloader(cfg: ExperimentConfig, split: str = "val") -> DataLoader:
     dataset = build_imagenet_dataset(cfg, split)

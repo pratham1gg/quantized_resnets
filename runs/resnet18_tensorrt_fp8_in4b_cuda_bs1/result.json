@@ -8,6 +8,7 @@
     "imagenet_path": "/home/pf4636/imagenet2",
     "input_quant_bits": 4,
     "model_precision": "fp8",
+    "num_classes": 100,
     "num_eval_batches": 500,
     "num_workers": 8,
     "output_root": "../runs",
@@ -21,14 +22,14 @@
   },
   "error": null,
   "results": {
-    "batch_ms_avg": 0.8221493659298272,
-    "infer_ms_avg": 0.6070003723389744,
-    "infer_ms_max": 1.444837000235566,
-    "infer_ms_min": 0.31756600037624594,
-    "infer_ms_std": 0.22845475200662266,
+    "batch_ms_avg": 0.7930356238849778,
+    "infer_ms_avg": 0.5870078576411655,
+    "infer_ms_max": 1.3692850479856133,
+    "infer_ms_min": 0.3548329696059227,
+    "infer_ms_std": 0.20313196154793084,
     "loss_avg": 0.7750280868678175,
-    "throughput_infer_sps": 1647.4454474330341,
-    "throughput_sps": 1216.3239934741405,
+    "throughput_infer_sps": 1703.5547088217925,
+    "throughput_sps": 1260.977401117406,
     "top1_acc": 80.85106382978724,
     "top5_acc": 95.95744680851064,
     "total_batches": 470,
@@ -39,8 +40,8 @@
   "system": {
     "cuda_available": true,
     "device": "cuda",
-    "timestamp": "2026-03-26 20:14:05",
+    "timestamp": "2026-04-07 19:43:58",
     "torch": "2.10.0+cu128"
   },
-  "total_eval_time_sec": 7.361
+  "total_eval_time_sec": 2.905
 }
