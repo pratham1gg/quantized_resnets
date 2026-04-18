@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 
 from config import ExperimentConfig
-from metrics import MetricsTracker
+from metrics import MetricsTracker, WARMUP_BATCHES
 from precision import ensure_input_dtype
 
 
@@ -18,7 +18,7 @@ def evaluate(
 
     metrics        = MetricsTracker()
     max_batches    = cfg.num_eval_batches
-    warmup_batches = 30
+    warmup_batches = WARMUP_BATCHES
 
     total_batches = len(dataloader)
     effective_batches = total_batches if max_batches is None else min(total_batches, max_batches)

@@ -1,18 +1,18 @@
 """
-train.py
---------
+train_fp32.py
+-------------
 Train ResNet-18 from scratch on ImageNet-1K.
 
 Usage
 -----
     # Single GPU, defaults
-    python train.py
+    python training/train_fp32.py
 
     # Override anything
-    python train.py --epochs 90 --batch-size 256 --lr 0.1 --workers 8
+    python training/train_fp32.py --epochs 90 --batch-size 256 --lr 0.1 --workers 8
 
     # Resume from checkpoint
-    python train.py --resume checkpoints/epoch_10.pth
+    python training/train_fp32.py --resume checkpoints/fp32/epoch_010.pth
 """
 
 import argparse

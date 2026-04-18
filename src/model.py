@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -5,6 +7,9 @@ import torchvision.models as models
 from torchvision.models import ResNet18_Weights
 
 from config import ExperimentConfig
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_DEFAULT_CHECKPOINT = _REPO_ROOT / "checkpoints" / "best.pth"
 
 
 class BasicBlock(nn.Module):
@@ -108,17 +113,9 @@ def get_model(
     pretrained: bool = False,
     checkpoint_path: str | None = None,
 ) -> nn.Module:
-    """
-    Load a ResNet-18 with one of two weight sources:
-
-    - Default: custom checkpoint saved by train_resnet18/train.py, 100 classes.
-      Loads from ``checkpoint_path`` if given, otherwise ``checkpoints/best.pth``.
-      The checkpoint is expected to be a dict with a ``"model"`` key.
-    - ``pretrained=True``: ImageNet-1K torchvision weights, 1000 classes.
-    """
     if pretrained:
         return ResNet18(num_classes=1000, pretrained=True)
-    path = checkpoint_path or "/home/pf4636/code/resnet/quantized_resnets/checkpoints/best.pth"
+    path = checkpoint_path or str(_DEFAULT_CHECKPOINT)
     model = ResNet18(num_classes=100, pretrained=False)
     ckpt = torch.load(path, map_location="cpu")
     state_dict = ckpt["model"] if "model" in ckpt else ckpt

@@ -1,6 +1,13 @@
 .venv/
 .vscode/
 __pycache__/
+*.pyc
+*.pyo
+
+# Generated model artifacts (large binaries — not committed)
 checkpoints/
 engines/
+onnx/
 TensorRT/
+
+# runs/ contains experiment result JSONs — commit those for reproducibility

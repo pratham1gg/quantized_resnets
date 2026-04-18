@@ -11,13 +11,13 @@ Quantization scheme
 Usage
 -----
   # Default run (15 epochs, lr=1e-4, 32 calib batches)
-  python qat/train_qat_phase1.py
+  python training/train_qat_phase1.py
 
   # Override anything
-  python qat/train_qat_phase1.py --epochs 20 --lr 5e-5 --calib-batches 64
+  python training/train_qat_phase1.py --epochs 20 --lr 5e-5 --calib-batches 64
 
   # Resume from a mid-run checkpoint
-  python qat/train_qat_phase1.py --resume checkpoints/qat_phase1_epoch_005.pth
+  python training/train_qat_phase1.py --resume checkpoints/qat/qat_phase1_epoch_005.pth
 """
 
 import argparse
@@ -71,7 +71,7 @@ def parse_args() -> argparse.Namespace:
                    help="ImageNet root containing train/ and val/")
     p.add_argument("--checkpoint",     default=str(ROOT / "checkpoints" / "best.pth"),
                    help="FP32 pretrained checkpoint to start from")
-    p.add_argument("--checkpoint-dir", default=str(ROOT / "checkpoints"),
+    p.add_argument("--checkpoint-dir", default=str(ROOT / "checkpoints" / "qat"),
                    help="Directory to save QAT checkpoints")
     p.add_argument("--epochs",         default=15,   type=int)
     p.add_argument("--batch-size",     default=256,  type=int)

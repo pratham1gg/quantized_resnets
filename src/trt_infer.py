@@ -28,7 +28,7 @@ import torch
 import tensorrt as trt
 
 from config import ExperimentConfig
-from metrics import MetricsTracker
+from metrics import MetricsTracker, WARMUP_BATCHES
 
 _LOGGER = trt.Logger(trt.Logger.WARNING)
 
@@ -73,7 +73,7 @@ def trt_evaluate(
 
     metrics        = MetricsTracker()
     max_batches    = cfg.num_eval_batches
-    warmup_batches = 30
+    warmup_batches = WARMUP_BATCHES
     effective      = len(dataloader) if max_batches is None else min(len(dataloader), max_batches)
     print(f"[trt_infer] Evaluating {effective} batches (first {warmup_batches} are warmup) ...")
 

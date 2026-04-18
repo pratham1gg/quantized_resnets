@@ -12,7 +12,7 @@
     "num_eval_batches": 500,
     "num_workers": 8,
     "output_root": "../runs",
-    "qat_checkpoint": "/home/pf4636/code/resnet/quantized_resnets/checkpoints/resnet18_qat_int8_in4b_cuda_bs256/qat_phase1_best.pth",
+    "qat_checkpoint": "/home/pf4636/code/resnet/quantized_resnets/checkpoints/qat/resnet18_qat_int8_in4b_cuda_bs256/qat_phase1_best.pth",
     "seed": 42,
     "trt_calib_num_batches": 32,
     "trt_calib_seed": 42,
@@ -23,14 +23,14 @@
   },
   "error": null,
   "results": {
-    "batch_ms_avg": 26.986065197830765,
-    "infer_ms_avg": 26.721546272420575,
-    "infer_ms_max": 36.773792999156285,
-    "infer_ms_min": 20.230270001775352,
-    "infer_ms_std": 4.234419943884128,
+    "batch_ms_avg": 27.603203564030217,
+    "infer_ms_avg": 27.327560185593494,
+    "infer_ms_max": 37.174309021793306,
+    "infer_ms_min": 19.165478996001184,
+    "infer_ms_std": 4.385584783365078,
     "loss_avg": 0.7318735385343353,
-    "throughput_infer_sps": 37.42298405209074,
-    "throughput_sps": 37.05616186239643,
+    "throughput_infer_sps": 36.59309478082052,
+    "throughput_sps": 36.22767906921868,
     "top1_acc": 81.70212765957447,
     "top5_acc": 96.59574468085107,
     "total_batches": 470,
@@ -41,8 +41,8 @@
   "system": {
     "cuda_available": true,
     "device": "cuda",
-    "timestamp": "2026-04-09 23:02:12",
+    "timestamp": "2026-04-18 14:01:04",
     "torch": "2.10.0+cu128"
   },
-  "total_eval_time_sec": 13.893
+  "total_eval_time_sec": 14.193
 }

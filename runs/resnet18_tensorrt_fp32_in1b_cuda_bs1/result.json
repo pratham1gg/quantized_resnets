@@ -22,14 +22,14 @@
   },
   "error": null,
   "results": {
-    "batch_ms_avg": 1.1618507337419595,
-    "infer_ms_avg": 0.9641263542320342,
-    "infer_ms_max": 1.81024509947747,
-    "infer_ms_min": 0.7984059629961848,
-    "infer_ms_std": 0.15379159402716105,
+    "batch_ms_avg": 1.120422436717026,
+    "infer_ms_avg": 0.9419319717748527,
+    "infer_ms_max": 1.4053939376026392,
+    "infer_ms_min": 0.7940649520605803,
+    "infer_ms_std": 0.13742622043202568,
     "loss_avg": 3.195294320607122,
-    "throughput_infer_sps": 1037.208448467878,
-    "throughput_sps": 860.6957597550517,
+    "throughput_infer_sps": 1061.6477940712975,
+    "throughput_sps": 892.5205058639506,
     "top1_acc": 26.595744680851062,
     "top5_acc": 56.59574468085106,
     "total_batches": 470,
@@ -40,8 +40,8 @@
   "system": {
     "cuda_available": true,
     "device": "cuda",
-    "timestamp": "2026-04-07 19:47:04",
+    "timestamp": "2026-04-18 16:41:48",
     "torch": "2.10.0+cu128"
   },
-  "total_eval_time_sec": 3.17
+  "total_eval_time_sec": 3.966
 }

@@ -89,9 +89,7 @@ class ExperimentConfig:
         if cfg.model_precision == "fp16" and not cfg.device.startswith("cuda"):
             raise ValueError("model_precision='fp16' is intended for CUDA (device='cuda').")
 
-    #JSon File naming starts here
     def run_id(self) -> str:
-        """Gives the file name aka run_id"""
         cfg = self.normalized()
         parts = [
             "resnet18",
@@ -107,12 +105,12 @@ class ExperimentConfig:
         return "_".join(parts)
 
     def run_dir(self) -> Path:
+
         return Path(self.output_root) / self.run_id()
 
     def result_json_path(self) -> Path:
         return self.run_dir() / "result.json"
-    #Json file naming ends here
-    
+
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
         # Keep paths as strings, dataclass -> dict already does that.
@@ -121,7 +119,6 @@ class ExperimentConfig:
     def to_json_str(self, indent: int = 2) -> str:
         return json.dumps(self.to_dict(), indent=indent, sort_keys=True)
 
-    #to be used in utils while saving
     def stamp(self) -> Dict[str, Any]:
         """env stamp for results."""
         return {
@@ -135,7 +132,7 @@ class ExperimentConfig:
 def set_seed(cfg: ExperimentConfig) -> None:
     # Keep deterministic as much as possible
     random.seed(cfg.seed)
-    np.random.seed(cfg.seed) # just in case i use numpy
+    np.random.seed(cfg.seed)
     torch.manual_seed(cfg.seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(cfg.seed)

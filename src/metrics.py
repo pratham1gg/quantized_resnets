@@ -4,6 +4,9 @@ from typing import Dict, Any, Optional, List
 import numpy as np
 import torch
 
+WARMUP_BATCHES = 30
+
+
 @dataclass
 class MetricsTracker:
     """
@@ -122,5 +125,3 @@ class MetricsTracker:
             "total_batches": int(len(self.infer_times_s)),
         }
 
-    def get_metrics(self) -> Dict[str, Any]:
-        return self.summary()

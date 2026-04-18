@@ -19,18 +19,12 @@ class Quantize01:
             raise ValueError(f"num_bits must be in [1,8] (or None/0 to disable), got {num_bits}")
         self.num_bits = num_bits
 
-    def __call__(self, x: torch.Tensor) -> torch.Tensor: 
-        # Ensure floating-point tensor and restrict values to valid [0,1] range
-        if self.num_bits is None:
-            return x
-
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
         if not torch.is_tensor(x):
             raise TypeError(f"Quantize01 expected torch.Tensor, got {type(x)}")
 
-        # Convert to float32 and clamp to expected quantization range
         x = x.to(torch.float32).clamp(0.0, 1.0)
-
-        levels = (1 << self.num_bits) - 1  # 8 bits -> 255 levels, 4 bits -> 15 levels, 2 bits -> 3 levels
+        levels = (1 << self.num_bits) - 1
         xq = torch.round(x * levels) / levels
         return xq
 

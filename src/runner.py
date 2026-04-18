@@ -42,6 +42,17 @@ from eval import evaluate
 from metrics import MetricsTracker
 
 
+def _make_payload(cfg: ExperimentConfig, tracker: MetricsTracker) -> Dict[str, Any]:
+    return {
+        "status" : "ok",
+        "run_id" : cfg.run_id(),
+        "system" : cfg.stamp(),
+        "config" : cfg.to_dict(),
+        "results": tracker.summary(),
+        "error"  : None,
+    }
+
+
 def _save_result_json(payload: Dict[str, Any], cfg: ExperimentConfig) -> str:
     path = cfg.result_json_path()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -135,15 +146,7 @@ def _run_tensorrt(
     print("[runner] Step 3/3 — Running TRT inference ...")
     tracker = trt_evaluate(engine_path, cfg, get_dataloader(cfg, split=split), criterion)
 
-    payload = {
-        "status" : "ok",
-        "run_id" : cfg.run_id(),
-        "system" : cfg.stamp(),
-        "config" : cfg.to_dict(),
-        "results": tracker.summary(),
-        "error"  : None,
-    }
-    return payload, tracker
+    return _make_payload(cfg, tracker), tracker
 
 
 def run_experiment(
@@ -173,26 +176,12 @@ def run_experiment(
         if use_torch_compile and cfg.device.startswith("cuda"):
             model = torch.compile(model)
         tracker = evaluate(model, loader, cfg, criterion=criterion)
-        payload = {
-            "status" : "ok",
-            "run_id" : cfg.run_id(),
-            "system" : cfg.stamp(),
-            "config" : cfg.to_dict(),
-            "results": tracker.summary(),
-            "error"  : None,
-        }
+        payload = _make_payload(cfg, tracker)
 
     elif cfg.backend == "torchao_cpu_ptq":
         model   = quantize_int8_x86_pt2e(get_model(cfg), get_dataloader(cfg, split=cfg.cpu_calib_split), calib_num_batches=cfg.cpu_calib_num_batches)
-        tracker = evaluate(model, get_dataloader(cfg, split=split ), cfg, criterion=criterion)
-        payload = {
-            "status" : "ok",
-            "run_id" : cfg.run_id(),
-            "system" : cfg.stamp(),
-            "config" : cfg.to_dict(),
-            "results": tracker.summary(),
-            "error"  : None,
-        }
+        tracker = evaluate(model, get_dataloader(cfg, split=split), cfg, criterion=criterion)
+        payload = _make_payload(cfg, tracker)
 
     elif cfg.backend == "tensorrt":
         payload, tracker = _run_tensorrt(cfg, split=split, criterion=criterion)
