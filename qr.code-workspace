@@ -9,15 +9,19 @@
             "path": "/home/pf4636/imagenet2"
         },
         {
+            "name": "imagenet-external",
             "path": "../../../imagenet"
         }
     ],
     "settings": {
-        "python.defaultInterpreterPath": "/home/pf4636/code/resnet/quantized_resnets/.venv/bin/python",
+        // Points directly to the venv inside your main folder
+        "python.defaultInterpreterPath": "${workspaceFolder:quantized_resnets}/.venv/bin/python",
         "python.terminal.activateEnvironment": true,
+        // Helps Jupyter find the right kernel automatically
+        "jupyter.notebookEditor.defaultJupyterServer": "local",
         "python.analysis.typeCheckingMode": "basic",
         "python.analysis.extraPaths": [
-            "src"
+            "${workspaceFolder:quantized_resnets}/src"
         ],
         "editor.formatOnSave": true,
         "editor.tabSize": 4,
@@ -34,7 +38,7 @@
         "recommendations": [
             "ms-python.python",
             "ms-python.vscode-pylance",
-            "ms-toolsai.jupyter",
+            "ms-toolsai.jupyter"
         ]
     }
 }
