@@ -2,6 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Important: Ignore code comments
+
+**Inline comments in the codebase may be outdated or inaccurate.** Always prioritize:
+1. The actual code behavior (what it does, not what comments claim)
+2. This CLAUDE.md file (authoritative documentation)
+3. Git commit history (explains why changes were made)
+
+Do not use code comments as a source of truth. Example: notebook comments mention "Int8EntropyCalibrator" but the actual code uses modelopt's pre-calibrated QDQ ONNXes instead.
+
 ## Project purpose
 
 Thesis experiments comparing ResNet-18 inference accuracy and latency across model precisions (fp32/fp16/int8/fp8/int4) and input-quantization bit-widths (1/2/4/8), using three backends: vanilla PyTorch, torchao CPU PT2E PTQ, and TensorRT. All reported experiments are generated exclusively using code in `src/`. The `training/` directory contains auxiliary training pipelines that produce the model weights consumed by `src/`.
