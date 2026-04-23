@@ -1,0 +1,152 @@
+"""
+train_utils.py
+--------------
+Training / validation loop utilities for ModelOpt QAT fine-tuning.
+
+Identical contract to src/qat/train_utils.py so the main training script
+can swap between the two without changes to the loop logic.
+"""
+
+import os
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.amp.autocast_mode import autocast
+from torch.amp.grad_scaler import GradScaler
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+
+def train_one_epoch(
+    model:     nn.Module,
+    loader:    DataLoader,
+    criterion: nn.Module,
+    optimizer: optim.Optimizer,
+    scaler:    GradScaler,
+    device:    torch.device,
+    epoch:     int,
+) -> tuple[float, float]:
+    model.train()
+    running_loss    = 0.0
+    running_correct = 0
+    n_batches       = 0
+
+    for images, labels in tqdm(loader, desc=f"Epoch {epoch} [train]"):
+        images = images.to(device, non_blocking=True)
+        labels = labels.to(device, non_blocking=True)
+
+        optimizer.zero_grad(set_to_none=True)
+
+        with autocast(device_type="cuda"):
+            outputs = model(images)
+            loss    = criterion(outputs, labels)
+
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
+
+        running_loss    += loss.item()
+        _, preds         = torch.max(outputs.detach(), 1)
+        running_correct += (preds == labels).sum().item()
+        n_batches       += 1
+
+    epoch_loss = running_loss / n_batches
+    epoch_acc  = 100.0 * running_correct / len(loader.dataset)
+    return epoch_loss, epoch_acc
+
+
+@torch.no_grad()
+def validate(
+    model:     nn.Module,
+    loader:    DataLoader,
+    criterion: nn.Module,
+    device:    torch.device,
+) -> tuple[float, float, float]:
+    model.eval()
+    running_loss    = 0.0
+    running_correct = 0
+    top5_correct    = 0
+    n_batches       = 0
+
+    for images, labels in tqdm(loader, desc="[val]"):
+        images = images.to(device, non_blocking=True)
+        labels = labels.to(device, non_blocking=True)
+
+        with autocast(device_type="cuda"):
+            outputs = model(images)
+            loss    = criterion(outputs, labels)
+
+        running_loss    += loss.item()
+        _, preds         = torch.max(outputs, 1)
+        running_correct += (preds == labels).sum().item()
+        _, top5          = outputs.topk(5, dim=1)
+        top5_correct    += (top5 == labels.view(-1, 1)).sum().item()
+        n_batches       += 1
+
+    n        = len(loader.dataset)
+    val_loss = running_loss / n_batches
+    top1     = 100.0 * running_correct / n
+    top5     = 100.0 * top5_correct    / n
+    return val_loss, top1, top5
+
+
+def save_checkpoint(
+    model:     nn.Module,
+    state:     dict,
+    directory: str,
+    epoch:     int,
+    is_best:   bool,
+) -> None:
+    """
+    Save training state + ModelOpt quantizer states.
+
+    Two files per checkpoint:
+      qat_modelopt_epoch_NNN.pth          — standard training state dict
+      qat_modelopt_epoch_NNN_mostate.pt   — ModelOpt quantizer scales/zp
+    """
+    import modelopt.torch.opt as mto
+
+    os.makedirs(directory, exist_ok=True)
+    stem      = f"qat_modelopt_epoch_{epoch:03d}"
+    ckpt_path = os.path.join(directory, f"{stem}.pth")
+    mo_path   = os.path.join(directory, f"{stem}_mostate.pt")
+
+    torch.save(state, ckpt_path)
+    torch.save(mto.modelopt_state(model), mo_path)
+
+    if is_best:
+        best_ckpt = os.path.join(directory, "qat_modelopt_best.pth")
+        best_mo   = os.path.join(directory, "qat_modelopt_best_mostate.pt")
+        torch.save(state, best_ckpt)
+        torch.save(mto.modelopt_state(model), best_mo)
+        print(f"  [Checkpoint] Best model → {best_ckpt}")
+
+
+def load_checkpoint(
+    ckpt_path: str,
+    mo_path:   str,
+    model:     nn.Module,
+    optimizer: optim.Optimizer,
+    scaler:    GradScaler,
+    scheduler,
+) -> tuple[int, float]:
+    """
+    Restore training state and ModelOpt quantizer states.
+
+    mo_path must point to the _mostate.pt file saved alongside the checkpoint.
+    Call this BEFORE loading model weights so quantized layers exist first.
+    """
+    import modelopt.torch.opt as mto
+
+    print(f"[Resume] Restoring modelopt state from {mo_path}")
+    mo_state = torch.load(mo_path, map_location="cpu")
+    mto.restore_from_modelopt_state(model, mo_state)
+
+    print(f"[Resume] Loading checkpoint from {ckpt_path}")
+    ckpt = torch.load(ckpt_path, map_location="cpu")
+    model.load_state_dict(ckpt["model"])
+    optimizer.load_state_dict(ckpt["optimizer"])
+    scaler.load_state_dict(ckpt["scaler"])
+    scheduler.load_state_dict(ckpt["scheduler"])
+    return ckpt["epoch"] + 1, ckpt.get("best_acc", 0.0)
