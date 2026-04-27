@@ -1,24 +1,3 @@
-"""
-train_qat_phase1.py
--------------------
-Phase 1 QAT: pytorch-quantization INT8 fine-tuning on ImageNet-100.
-
-Quantization scheme
--------------------
-  Weights     : per-channel INT8, max calibration
-  Activations : per-tensor INT8, max calibration
-
-Usage
------
-  # Default run (15 epochs, lr=1e-4, 32 calib batches)
-  python training/train_qat_phase1.py
-
-  # Override anything
-  python training/train_qat_phase1.py --epochs 20 --lr 5e-5 --calib-batches 64
-
-  # Resume from a mid-run checkpoint
-  python training/train_qat_phase1.py --resume checkpoints/qat/qat_phase1_epoch_005.pth
-"""
 
 import argparse
 import os
@@ -34,36 +13,26 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.amp.grad_scaler import GradScaler
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import DataLoader
 
-# ---------------------------------------------------------------------------
-# Path setup — make src/ and src/qat/ importable
-# ---------------------------------------------------------------------------
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "src" / "qat"))
 
-# pytorch-quantization must be imported before the quantize module triggers
-# quant_modules.initialize(), which happens in the call below.
-from config import ExperimentConfig  # noqa: E402
-from data import build_imagenet_dataset  # noqa: E402
-from qat.quantize import (  # noqa: E402
+from config import ExperimentConfig
+from data import build_imagenet_transform, build_train_holdout_split
+from qat.quantize import (
     calibrate,
     get_quantized_model,
     initialize_quant_modules,
     setup_quantization_descriptors,
 )
-from qat.train_utils import (  # noqa: E402
+from qat.train_utils import (
     load_checkpoint,
     save_checkpoint,
     train_one_epoch,
     validate,
 )
-
-
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Phase 1 QAT — pytorch-quantization INT8")
@@ -89,11 +58,6 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--seed",           default=42,   type=int)
     return p.parse_args()
 
-
-# ---------------------------------------------------------------------------
-# Reproducibility
-# ---------------------------------------------------------------------------
-
 def set_seed(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
@@ -102,31 +66,23 @@ def set_seed(seed: int) -> None:
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark     = False
 
-
-# ---------------------------------------------------------------------------
-# Data
-# ---------------------------------------------------------------------------
-
-def _subset(dataset, num_classes: int) -> Subset:
-    kept    = set(range(num_classes))
-    indices = [i for i, (_, label) in enumerate(dataset.samples) if label in kept]
-    return Subset(dataset, indices)
-
-
 def get_dataloaders(args: argparse.Namespace):
     cfg = ExperimentConfig(
         imagenet_path=args.data,
         batch_size=args.batch_size,
         num_workers=args.workers,
         input_quant_bits=args.input_quant_bits,
+        num_classes=args.num_classes,
     )
 
-    train_ds = build_imagenet_dataset(cfg, "train")
-    val_ds   = build_imagenet_dataset(cfg, "val")
-
-    if args.num_classes < 1000:
-        train_ds = _subset(train_ds, args.num_classes)
-        val_ds   = _subset(val_ds,   args.num_classes)
+    transform = build_imagenet_transform(cfg)
+    train_ds, val_ds = build_train_holdout_split(
+        data_root=args.data,
+        num_classes=args.num_classes,
+        seed=args.seed,
+        train_transform=transform,
+        eval_transform=transform,
+    )
 
     train_loader = DataLoader(
         train_ds, batch_size=args.batch_size, shuffle=True,
@@ -137,14 +93,7 @@ def get_dataloaders(args: argparse.Namespace):
         num_workers=args.workers, pin_memory=True,
     )
 
-    print(f"[Data] Train: {len(train_ds):,}  Val: {len(val_ds):,}  "
-          f"(num_classes={args.num_classes})")
     return train_loader, val_loader
-
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     args   = parse_args()
@@ -158,18 +107,14 @@ if __name__ == "__main__":
     os.makedirs(args.checkpoint_dir, exist_ok=True)
     print(f"[Checkpoints] {args.checkpoint_dir}")
 
-    # 1. Configure quantization descriptors and patch nn.Conv2d / nn.Linear
-    #    — must happen before ResNet18 is instantiated inside get_quantized_model
     setup_quantization_descriptors()
     initialize_quant_modules()
 
-    # 2. Build quantized model and load FP32 weights
     model = get_quantized_model(args.checkpoint, num_classes=args.num_classes).to(device)
     print(f"[Model] FP32 weights loaded from {args.checkpoint}")
 
     train_loader, val_loader = get_dataloaders(args)
 
-    # 3. Calibration (skipped on resume — amax is stored in the checkpoint)
     if args.resume is None:
         calibrate(model, train_loader, args.calib_batches, device)
 
@@ -191,7 +136,6 @@ if __name__ == "__main__":
         )
         print(f"[Resume] Epoch {start_epoch}, best_acc={best_acc:.3f}%")
 
-    # 4. QAT fine-tuning loop
     for epoch in range(start_epoch, args.epochs + 1):
         lr = optimizer.param_groups[0]["lr"]
         print(f"\n[Epoch {epoch}/{args.epochs}]  lr={lr:.2e}")

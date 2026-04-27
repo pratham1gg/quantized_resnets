@@ -1,4 +1,3 @@
-"""Tests for src/runner.py — run_experiment routing (all heavy deps mocked)."""
 import sys
 import types
 import pytest
@@ -10,11 +9,6 @@ from unittest.mock import MagicMock, patch, call
 from config import ExperimentConfig
 from metrics import MetricsTracker
 
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 def _ok_tracker():
     t = MetricsTracker()
     outputs = torch.zeros(4, 10)
@@ -24,12 +18,10 @@ def _ok_tracker():
              batch_time_s=0.01, infer_time_s=0.008, batch_size=4)
     return t
 
-
 def _tiny_loader():
     from torch.utils.data import DataLoader, TensorDataset
     ds = TensorDataset(torch.randn(8, 3, 224, 224), torch.zeros(8, dtype=torch.long))
     return DataLoader(ds, batch_size=4)
-
 
 def _tiny_model():
     return nn.Sequential(
@@ -37,11 +29,6 @@ def _tiny_model():
         nn.Flatten(),
         nn.Linear(3, 10),
     ).eval()
-
-
-# ---------------------------------------------------------------------------
-# pytorch backend
-# ---------------------------------------------------------------------------
 
 class TestRunnerPytorch:
     def test_pytorch_fp32_returns_payload_and_tracker(self, tmp_path):
@@ -90,11 +77,6 @@ class TestRunnerPytorch:
 
         assert payload["run_id"] == cfg.run_id()
 
-
-# ---------------------------------------------------------------------------
-# torchao_cpu_ptq backend
-# ---------------------------------------------------------------------------
-
 class TestRunnerTorchaoCPU:
     def test_torchao_routes_to_quantize(self, tmp_path):
         cfg = ExperimentConfig(
@@ -113,30 +95,18 @@ class TestRunnerTorchaoCPU:
         mock_q.assert_called_once()
         assert payload["status"] == "ok"
 
-
-# ---------------------------------------------------------------------------
-# Unknown backend
-# ---------------------------------------------------------------------------
-
 def test_unknown_backend_raises(tmp_path):
     cfg = ExperimentConfig(
         backend="pytorch", model_precision="fp32", device="cpu",
         output_root=str(tmp_path / "runs"),
     )
-    # Manually bypass validate() to inject bad backend
     from dataclasses import replace
     bad_cfg = replace(cfg, backend="nonexistent")
     with pytest.raises(ValueError, match="nonexistent"):
         from runner import run_experiment
         run_experiment.__wrapped__ if hasattr(run_experiment, "__wrapped__") else None
-        # Call runner._run with bad backend directly
         import runner
         runner.run_experiment(bad_cfg, save_results_flag=False)
-
-
-# ---------------------------------------------------------------------------
-# TRT path helpers
-# ---------------------------------------------------------------------------
 
 def test_get_trt_paths_plain_onnx_for_fp32(tmp_path):
     cfg = ExperimentConfig(
@@ -147,7 +117,6 @@ def test_get_trt_paths_plain_onnx_for_fp32(tmp_path):
     onnx_path, engine_path, _ = runner._get_trt_paths(cfg)
     assert onnx_path.name == "resnet18.onnx"
 
-
 def test_get_trt_paths_qdq_onnx_for_int8(tmp_path):
     cfg = ExperimentConfig(
         backend="tensorrt", model_precision="int8", device="cuda",
@@ -156,7 +125,6 @@ def test_get_trt_paths_qdq_onnx_for_int8(tmp_path):
     import runner
     onnx_path, _, _ = runner._get_trt_paths(cfg)
     assert onnx_path.name == "resnet18_int8_qdq.onnx"
-
 
 def test_get_trt_paths_qdq_onnx_for_fp8(tmp_path):
     cfg = ExperimentConfig(

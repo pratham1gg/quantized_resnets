@@ -20,7 +20,7 @@ def quantize_int8_x86_pt2e(
     model = model.to("cpu").eval()
 
     images0, _ = next(iter(calib_loader))
-    example_x = images0.contiguous().to("cpu")   # keep same batch shape as calib loader
+    example_x = images0.contiguous().to("cpu")   
 
     exported = export(model, (example_x,))  
 

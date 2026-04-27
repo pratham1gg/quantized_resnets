@@ -8,7 +8,6 @@ from config import ExperimentConfig
 from metrics import MetricsTracker, WARMUP_BATCHES
 from precision import ensure_input_dtype
 
-
 def evaluate(
     model: nn.Module,
     dataloader: torch.utils.data.DataLoader,

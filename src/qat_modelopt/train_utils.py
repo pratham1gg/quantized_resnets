@@ -1,11 +1,3 @@
-"""
-train_utils.py
---------------
-Training / validation loop utilities for ModelOpt QAT fine-tuning.
-
-Identical contract to src/qat/train_utils.py so the main training script
-can swap between the two without changes to the loop logic.
-"""
 
 import os
 
@@ -16,7 +8,6 @@ from torch.amp.autocast_mode import autocast
 from torch.amp.grad_scaler import GradScaler
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
 
 def train_one_epoch(
     model:     nn.Module,
@@ -55,7 +46,6 @@ def train_one_epoch(
     epoch_acc  = 100.0 * running_correct / len(loader.dataset)
     return epoch_loss, epoch_acc
 
-
 @torch.no_grad()
 def validate(
     model:     nn.Module,
@@ -90,7 +80,6 @@ def validate(
     top5     = 100.0 * top5_correct    / n
     return val_loss, top1, top5
 
-
 def save_checkpoint(
     model:     nn.Module,
     state:     dict,
@@ -98,13 +87,6 @@ def save_checkpoint(
     epoch:     int,
     is_best:   bool,
 ) -> None:
-    """
-    Save training state + ModelOpt quantizer states.
-
-    Two files per checkpoint:
-      qat_modelopt_epoch_NNN.pth          — standard training state dict
-      qat_modelopt_epoch_NNN_mostate.pt   — ModelOpt quantizer scales/zp
-    """
     import modelopt.torch.opt as mto
 
     os.makedirs(directory, exist_ok=True)
@@ -122,7 +104,6 @@ def save_checkpoint(
         torch.save(mto.modelopt_state(model), best_mo)
         print(f"  [Checkpoint] Best model → {best_ckpt}")
 
-
 def load_checkpoint(
     ckpt_path: str,
     mo_path:   str,
@@ -131,12 +112,6 @@ def load_checkpoint(
     scaler:    GradScaler,
     scheduler,
 ) -> tuple[int, float]:
-    """
-    Restore training state and ModelOpt quantizer states.
-
-    mo_path must point to the _mostate.pt file saved alongside the checkpoint.
-    Call this BEFORE loading model weights so quantized layers exist first.
-    """
     import modelopt.torch.opt as mto
 
     print(f"[Resume] Restoring modelopt state from {mo_path}")

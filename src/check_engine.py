@@ -11,7 +11,6 @@ with open(ENGINE_PATH, "rb") as f:
 inspector = engine.create_engine_inspector()
 precision_counts = Counter()
 
-# Skip layer 0 — it's a TRT internal l2_cache_policy layer, not a real compute layer
 SKIP_TYPES = {"custom_layer", "signal", "wait"}
 
 print(f"{'Idx':<5} {'Layer Name':<45} {'Type':<15} {'Input dtype(s)':<25} {'Output dtype(s)'}")
@@ -36,7 +35,6 @@ for i in range(engine.num_layers):
 
     print(f"  [{i:03d}] {name:<45} {layer_type:<15} {str(in_dtypes):<25} {out_dtypes}")
 
-    # Optional: print ONNX origin and tactic
     if metadata:
         onnx_layers = metadata.replace("\x1f", ", ")
         print(f"         ONNX : {onnx_layers}")

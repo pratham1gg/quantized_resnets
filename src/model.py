@@ -11,7 +11,6 @@ from config import ExperimentConfig
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _DEFAULT_CHECKPOINT = _REPO_ROOT / "checkpoints" / "best.pth"
 
-
 class BasicBlock(nn.Module):
     expansion = 1
 
@@ -36,7 +35,6 @@ class BasicBlock(nn.Module):
         out = F.relu(self.bn1(self.conv1(x)), inplace=True)
         out = self.bn2(self.conv2(out))
 
-
         if self.downsample is not None:
             identity = self.downsample(x)
 
@@ -44,12 +42,11 @@ class BasicBlock(nn.Module):
         out = F.relu(out, inplace=True)
         return out
 
-
 class ResNet18(nn.Module):
-    def __init__(self, num_classes: int = 1000, pretrained: bool = True):
+    def __init__(self, num_classes: int = 1000, pretrained: bool = True, dropout: float = 0.0):
         super().__init__()
         self.in_c = 64
-        
+
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1   = nn.BatchNorm2d(64)
         self.relu  = nn.ReLU(inplace=True)
@@ -61,6 +58,7 @@ class ResNet18(nn.Module):
         self.layer4 = self._make_layer(out_c=512, blocks=2, stride=2)
 
         self.pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.dropout = nn.Dropout(p=dropout)
         self.fc = nn.Linear(512 * BasicBlock.expansion, num_classes)
 
         if pretrained:
@@ -70,7 +68,6 @@ class ResNet18(nn.Module):
             self.load_state_dict(sd)
         else:
             self._init_weights()
-
 
     def _make_layer(self, out_c: int, blocks: int, stride: int) -> nn.Sequential:
         layers = []
@@ -104,9 +101,9 @@ class ResNet18(nn.Module):
 
         x = self.pool(x)
         x = x.flatten(1)
+        x = self.dropout(x)
         x = self.fc(x)
         return x
-
 
 def get_model(
     cfg,

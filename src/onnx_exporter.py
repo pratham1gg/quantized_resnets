@@ -2,7 +2,6 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 
-
 class ONNXExporter:
     def __init__(self, model: nn.Module, device: str, onnx_path: str | Path):
         self.model     = model
@@ -20,7 +19,6 @@ class ONNXExporter:
 
         dummy = torch.randn(*dummy_input_shape, device=self.device, dtype=torch.float32)
 
-        # Only mark batch dim as dynamic if requested
         dynamic_axes = {"images": {0: "batch"}, "logits": {0: "batch"}} if dynamic_batch else None
 
         print(f"[onnx_exporter] Exporting to {self.onnx_path} ...")

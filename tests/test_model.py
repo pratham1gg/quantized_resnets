@@ -1,4 +1,3 @@
-"""Tests for src/model.py — ResNet18 architecture and get_model."""
 import sys
 import pytest
 import torch
@@ -6,11 +5,6 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 from model import ResNet18, BasicBlock, get_model
-
-
-# ---------------------------------------------------------------------------
-# BasicBlock
-# ---------------------------------------------------------------------------
 
 class TestBasicBlock:
     def test_no_downsample_same_shape(self):
@@ -30,11 +24,6 @@ class TestBasicBlock:
         blk = BasicBlock(64, 128, stride=2)
         x = torch.randn(1, 64, 56, 56)
         assert blk(x).shape == (1, 128, 28, 28)
-
-
-# ---------------------------------------------------------------------------
-# ResNet18
-# ---------------------------------------------------------------------------
 
 class TestResNet18:
     def test_output_shape_100_classes(self):
@@ -63,11 +52,6 @@ class TestResNet18:
             m = ResNet18(num_classes=nc, pretrained=False)
             assert m.fc.out_features == nc
 
-
-# ---------------------------------------------------------------------------
-# get_model
-# ---------------------------------------------------------------------------
-
 class TestGetModel:
     def test_loads_from_nested_state_dict(self, tmp_path):
         m = ResNet18(num_classes=100, pretrained=False)
@@ -75,7 +59,6 @@ class TestGetModel:
         torch.save({"model": m.state_dict()}, ckpt_path)
 
         loaded = get_model(cfg=None, checkpoint_path=str(ckpt_path))
-        # Verify weights match
         for (k1, v1), (k2, v2) in zip(
             m.state_dict().items(), loaded.state_dict().items()
         ):

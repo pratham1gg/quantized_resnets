@@ -34,7 +34,7 @@ import torch
 import torch.nn as nn
 
 from config import ExperimentConfig, set_seed
-from data import get_dataloader
+from data import build_runner_loaders
 from model import get_model
 from precision import apply_precision
 from quant_ptq_cpu import quantize_int8_x86_pt2e
@@ -92,7 +92,6 @@ def _get_trt_paths(cfg: ExperimentConfig) -> Tuple[Path, Path, Path]:
 
 def _run_tensorrt(
     cfg: ExperimentConfig,
-    split: str,
     criterion: Optional[nn.Module],
 ) -> Tuple[Dict[str, Any], MetricsTracker]:
     """3-step TRT pipeline: ONNX export → engine build → inference."""
@@ -144,22 +143,18 @@ def _run_tensorrt(
 
     # Step 3: Run inference
     print("[runner] Step 3/3 — Running TRT inference ...")
-    tracker = trt_evaluate(engine_path, cfg, get_dataloader(cfg, split=split), criterion)
+    _, val_loader = build_runner_loaders(cfg)
+    tracker = trt_evaluate(engine_path, cfg, val_loader, criterion)
 
     return _make_payload(cfg, tracker), tracker
 
 
 def run_experiment(
     cfg: ExperimentConfig,
-    split: str = "val",
     criterion: Optional[nn.Module] = None,
     save_results_flag: bool = True,
     use_torch_compile: bool = False,
 ) -> Tuple[Dict[str, Any], Optional[MetricsTracker]]:
-    """
-    Main entry point called by notebooks.
-    Routes to the correct backend and returns (result_dict, MetricsTracker).
-    """
     cfg = cfg.normalized()
     cfg.validate()
     set_seed(cfg)
@@ -172,19 +167,20 @@ def run_experiment(
 
     if cfg.backend == "pytorch":
         model  = apply_precision(get_model(cfg), cfg)
-        loader = get_dataloader(cfg, split=split)
+        _, val_loader = build_runner_loaders(cfg)
         if use_torch_compile and cfg.device.startswith("cuda"):
             model = torch.compile(model)
-        tracker = evaluate(model, loader, cfg, criterion=criterion)
+        tracker = evaluate(model, val_loader, cfg, criterion=criterion)
         payload = _make_payload(cfg, tracker)
 
     elif cfg.backend == "torchao_cpu_ptq":
-        model   = quantize_int8_x86_pt2e(get_model(cfg), get_dataloader(cfg, split=cfg.cpu_calib_split), calib_num_batches=cfg.cpu_calib_num_batches)
-        tracker = evaluate(model, get_dataloader(cfg, split=split), cfg, criterion=criterion)
+        train_loader, val_loader = build_runner_loaders(cfg)
+        model   = quantize_int8_x86_pt2e(get_model(cfg), train_loader, calib_num_batches=cfg.cpu_calib_num_batches)
+        tracker = evaluate(model, val_loader, cfg, criterion=criterion)
         payload = _make_payload(cfg, tracker)
 
     elif cfg.backend == "tensorrt":
-        payload, tracker = _run_tensorrt(cfg, split=split, criterion=criterion)
+        payload, tracker = _run_tensorrt(cfg, criterion=criterion)
 
     else:
         raise ValueError(f"Unknown backend: '{cfg.backend}'")

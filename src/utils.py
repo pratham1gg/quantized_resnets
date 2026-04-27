@@ -1,17 +1,3 @@
-"""
-Utility helpers for reading, writing, and summarising experiment result JSONs.
-
-Functions
----------
-ensure_dir        -- Create a directory (and parents) if it does not exist.
-read_json         -- Load a JSON file into a dict.
-write_json        -- Serialise a dict to a JSON file, creating parent dirs as needed.
-iter_result_jsons -- Yield all ``result.json`` paths under an output root, sorted.
-load_runs         -- Load all result JSONs under a root, optionally filtered by status.
-flatten_run       -- Collapse a run payload into a single flat dict (system/cfg/res/art).
-flatten_runs      -- Apply ``flatten_run`` to a list of runs.
-print_run_summary -- Pretty-print key metrics from a runner payload to stdout.
-"""
 
 
 import json
@@ -20,17 +6,14 @@ from typing import Any, Dict, List, Optional, Iterable
 
 JsonDict = Dict[str, Any]
 
-
 def ensure_dir(p: Path) -> Path:
     p.mkdir(parents=True, exist_ok=True)
     return p
-
 
 def read_json(path: str | Path) -> JsonDict:
     path = Path(path)
     with path.open("r") as f:
         return json.load(f)
-
 
 def write_json(path: str | Path, payload: JsonDict) -> None:
     path = Path(path)
@@ -38,13 +21,11 @@ def write_json(path: str | Path, payload: JsonDict) -> None:
     with path.open("w") as f:
         json.dump(payload, f, indent=2, sort_keys=True)
 
-
 def iter_result_jsons(output_root: str | Path = "./runs") -> Iterable[Path]:
     root = Path(output_root)
     if not root.exists():
         return []
     return sorted(root.rglob("result.json"))
-
 
 def load_runs(output_root: str | Path = "./runs", *, status: Optional[str] = "ok") -> List[JsonDict]:
     runs: List[JsonDict] = []
@@ -56,12 +37,7 @@ def load_runs(output_root: str | Path = "./runs", *, status: Optional[str] = "ok
             runs.append(r)
     return runs
 
-
 def flatten_run(run: JsonDict) -> JsonDict:
-    """
-    Flatten your schema into a single row:
-      system.* , cfg.* , res.* , art.*
-    """
     flat: JsonDict = {
         "run_id": run.get("run_id"),
         "status": run.get("status"),
@@ -82,15 +58,10 @@ def flatten_run(run: JsonDict) -> JsonDict:
 
     return flat
 
-
 def flatten_runs(runs: List[JsonDict]) -> List[JsonDict]:
     return [flatten_run(r) for r in runs]
 
-
 def print_run_summary(payload: JsonDict) -> None:
-    """
-    Print from *runner payload* (new schema).
-    """
     cfg = payload.get("config", {}) or {}
     res = payload.get("results", {}) or {}
 

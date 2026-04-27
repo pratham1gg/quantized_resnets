@@ -1,23 +1,3 @@
-"""
-TensorRT inference and evaluation loop for quantized ResNet models.
-
-Loads a serialised ``.trt`` / ``.engine`` file, runs the ImageNet eval loop
-using the TensorRT execution context, and returns a ``MetricsTracker`` with
-accuracy and latency statistics.
-
-Both static-batch and dynamic-batch engines are supported:
-- Dynamic engines: input shape is set per-batch via ``set_input_shape``.
-- Static engines: the last (undersized) batch is zero-padded to match the
-  engine's fixed batch dimension, and the extra rows are trimmed before
-  metric accumulation.
-
-The first ``warmup_batches`` (default 30) batches are excluded from metrics
-to avoid cold-start GPU timing noise.
-
-Functions
----------
-trt_evaluate -- Load a TRT engine and run the full evaluation loop.
-"""
 
 
 import time
@@ -32,15 +12,12 @@ from metrics import MetricsTracker, WARMUP_BATCHES
 
 _LOGGER = trt.Logger(trt.Logger.WARNING)
 
-
 def _find_tensor(engine: trt.ICudaEngine, mode: trt.TensorIOMode) -> str:
-    """Return the name of the first tensor matching the given IO mode."""
     for i in range(engine.num_io_tensors):
         name = engine.get_tensor_name(i)
         if engine.get_tensor_mode(name) == mode:
             return name
     raise RuntimeError(f"No tensor with mode {mode} found in engine.")
-
 
 def trt_evaluate(
     engine_path: str | Path,
@@ -48,11 +25,9 @@ def trt_evaluate(
     dataloader: torch.utils.data.DataLoader,
     criterion: Optional[torch.nn.Module] = None,
 ) -> MetricsTracker:
-    """Load a TRT engine and run the eval loop. Returns a MetricsTracker."""
     engine_path = Path(engine_path)
     device      = torch.device(cfg.device)
 
-    # Load engine
     runtime = trt.Runtime(_LOGGER)
     engine  = runtime.deserialize_cuda_engine(engine_path.read_bytes())
     if engine is None:
@@ -61,11 +36,9 @@ def trt_evaluate(
     context = engine.create_execution_context()
     stream  = torch.cuda.Stream(device=device)
 
-    # Find input/output tensor names (no hardcoded indices)
     in_name  = _find_tensor(engine, trt.TensorIOMode.INPUT)
     out_name = _find_tensor(engine, trt.TensorIOMode.OUTPUT)
 
-    # Check if batch dimension is dynamic (-1 means dynamic)
     is_dynamic = engine.get_tensor_shape(out_name)[0] == -1
 
     print(f"[trt_infer] Engine: {engine_path}")
@@ -90,14 +63,12 @@ def trt_evaluate(
         actual_bs = images.shape[0]
 
         if is_dynamic:
-            # Tell the engine the real input shape for this batch
             context.set_input_shape(in_name, tuple(images.shape))
             out_buf = torch.empty(
                 tuple(context.get_tensor_shape(out_name)),
                 dtype=torch.float32, device=device,
             )
         else:
-            # Static engine: pad the last (smaller) batch if needed
             engine_bs = engine.get_tensor_shape(out_name)[0]
             if actual_bs < engine_bs:
                 pad    = torch.zeros(engine_bs - actual_bs, *images.shape[1:], device=device)
@@ -107,7 +78,6 @@ def trt_evaluate(
                 dtype=torch.float32, device=device,
             )
 
-        # Run inference
         torch.cuda.synchronize(device)
         infer_start = time.perf_counter()
         context.set_tensor_address(in_name,  images.data_ptr())
@@ -118,7 +88,6 @@ def trt_evaluate(
         infer_time = time.perf_counter() - infer_start
         batch_time = time.perf_counter() - batch_start
 
-        # Trim padded rows before computing metrics
         logits     = out_buf[:actual_bs]
         loss_value = float(criterion(logits, targets).item()) if criterion else None
 

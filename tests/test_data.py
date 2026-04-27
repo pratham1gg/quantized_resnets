@@ -1,13 +1,7 @@
-"""Tests for src/data.py — Quantize01 transform and dataset helpers."""
 import pytest
 import torch
 from data import Quantize01, build_imagenet_transform
 from config import ExperimentConfig
-
-
-# ---------------------------------------------------------------------------
-# Quantize01
-# ---------------------------------------------------------------------------
 
 class TestQuantize01:
     def test_8bit_identity_on_uniform_grid(self):
@@ -63,17 +57,10 @@ class TestQuantize01:
         x = torch.rand(3, 4, 5)
         assert q(x).shape == x.shape
 
-
-# ---------------------------------------------------------------------------
-# build_imagenet_transform
-# ---------------------------------------------------------------------------
-
 def test_transform_pipeline_length():
     cfg = ExperimentConfig(input_quant_bits=8)
     t = build_imagenet_transform(cfg)
-    # Resize, CenterCrop, ToTensor, Quantize01, Normalize = 5 stages
     assert len(t.transforms) == 5
-
 
 def test_transform_produces_correct_shape():
     from PIL import Image

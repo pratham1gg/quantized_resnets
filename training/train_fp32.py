@@ -1,28 +1,16 @@
-"""
-train_fp32.py
--------------
-Train ResNet-18 from scratch on ImageNet-1K.
-
-Usage
------
-    # Single GPU, defaults
-    python training/train_fp32.py
-
-    # Override anything
-    python training/train_fp32.py --epochs 90 --batch-size 256 --lr 0.1 --workers 8
-
-    # Resume from checkpoint
-    python training/train_fp32.py --resume checkpoints/fp32/epoch_010.pth
-"""
 
 import argparse
 import os
 import random
-import time
 
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+DEFAULT_CHECKPOINT_DIR = ROOT / "checkpoints" / "fp32"
+BEST_CHECKPOINT_PATH   = ROOT / "checkpoints" / "best.pth"
 
 import numpy as np
 import PIL.ImageFile
@@ -32,16 +20,12 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.amp.grad_scaler import GradScaler
 from torch.amp.autocast_mode import autocast
-from torch.utils.data import DataLoader, Subset
-from torchvision import datasets, transforms
+from torch.utils.data import DataLoader
+from torchvision import transforms
 from tqdm import tqdm
 
+from data import build_train_holdout_split
 from model import ResNet18
-
-
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Train ResNet-18 on ImageNet-1K")
@@ -55,34 +39,19 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--num-classes",    default=100,  type=int)
     p.add_argument("--dropout",        default=0.0,  type=float)
     p.add_argument("--resume",         default=None, type=str)
-    p.add_argument("--checkpoint-dir", default="checkpoints")
+    p.add_argument("--checkpoint-dir", default=str(DEFAULT_CHECKPOINT_DIR))
+    p.add_argument("--best-path",      default=str(BEST_CHECKPOINT_PATH))
     p.add_argument("--seed",           default=42,   type=int)
     return p.parse_args()
-
-
-# ---------------------------------------------------------------------------
-# Reproducibility
-# ---------------------------------------------------------------------------
 
 def set_seed(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
-
-
-# ---------------------------------------------------------------------------
-# Data
-# ---------------------------------------------------------------------------
-
-def subset_dataset(dataset: datasets.ImageFolder, num_classes: int) -> Subset:
-    """Keep all samples from the first `num_classes` classes."""
-    kept_classes = set(range(num_classes))
-    selected = [idx for idx, (_, label) in enumerate(dataset.samples) if label in kept_classes]
-    return Subset(dataset, selected)
-
 
 def get_dataloaders(args: argparse.Namespace):
     normalize = transforms.Normalize(
@@ -105,12 +74,13 @@ def get_dataloaders(args: argparse.Namespace):
         normalize,
     ])
 
-    train_dataset = datasets.ImageFolder(os.path.join(args.data, "train"), train_transform)
-    val_dataset   = datasets.ImageFolder(os.path.join(args.data, "val"),   val_transform)
-
-    if args.num_classes < 1000:
-        train_dataset = subset_dataset(train_dataset, args.num_classes)
-        val_dataset   = subset_dataset(val_dataset,   args.num_classes)
+    train_dataset, val_dataset = build_train_holdout_split(
+        data_root=args.data,
+        num_classes=args.num_classes,
+        seed=args.seed,
+        train_transform=train_transform,
+        eval_transform=val_transform,
+    )
 
     train_loader = DataLoader(
         train_dataset, batch_size=args.batch_size,
@@ -121,14 +91,7 @@ def get_dataloaders(args: argparse.Namespace):
         shuffle=False, num_workers=args.workers, pin_memory=True,
     )
 
-    print(f"[Data] Train: {len(train_dataset):,} samples  (classes={args.num_classes})")
-    print(f"[Data] Val  : {len(val_dataset):,} samples")
     return train_loader, val_loader
-
-
-# ---------------------------------------------------------------------------
-# Train one epoch
-# ---------------------------------------------------------------------------
 
 def train_one_epoch(
     model:     nn.Module,
@@ -144,7 +107,7 @@ def train_one_epoch(
 
     running_loss    = 0.0
     running_correct = 0
-    counter         = 0  # number of batches — mirrors your training_utils
+    counter         = 0  
 
     for images, labels in tqdm(loader, total=len(loader)):
         counter += 1
@@ -153,7 +116,7 @@ def train_one_epoch(
 
         optimizer.zero_grad(set_to_none=True)
 
-        with autocast(device_type="cuda"):                        # mixed-precision forward
+        with autocast(device_type="cuda"):                        
             outputs = model(images)
             loss    = criterion(outputs, labels)
 
@@ -161,19 +124,13 @@ def train_one_epoch(
         scaler.step(optimizer)
         scaler.update()
 
-        running_loss += loss.item()             # sum of per-batch mean losses
+        running_loss += loss.item()             
         _, preds      = torch.max(outputs.data, 1)
         running_correct += (preds == labels).sum().item()
 
-    # Loss averaged over batches; accuracy over all samples — same as your utils
     epoch_loss = running_loss / counter
     epoch_acc  = 100. * running_correct / len(loader.dataset)
     return epoch_loss, epoch_acc
-
-
-# ---------------------------------------------------------------------------
-# Validate one epoch
-# ---------------------------------------------------------------------------
 
 @torch.no_grad()
 def validate(
@@ -207,20 +164,14 @@ def validate(
     epoch_acc  = 100. * running_correct / len(loader.dataset)
     return epoch_loss, epoch_acc
 
-
-# ---------------------------------------------------------------------------
-# Checkpoint helpers
-# ---------------------------------------------------------------------------
-
-def save_checkpoint(state: dict, directory: str, epoch: int, is_best: bool) -> None:
+def save_checkpoint(state: dict, directory: str, best_path: str, epoch: int, is_best: bool) -> None:
     os.makedirs(directory, exist_ok=True)
     path = os.path.join(directory, f"epoch_{epoch:03d}.pth")
     torch.save(state, path)
     if is_best:
-        best = os.path.join(directory, "best.pth")
-        torch.save(state, best)
-        print(f"  [Checkpoint] Best model saved → {best}")
-
+        os.makedirs(os.path.dirname(best_path), exist_ok=True)
+        torch.save(state, best_path)
+        print(f"  [Checkpoint] Best model saved → {best_path}")
 
 def load_checkpoint(path, model, optimizer, scaler, scheduler):
     print(f"[Resume] Loading {path}")
@@ -231,11 +182,6 @@ def load_checkpoint(path, model, optimizer, scaler, scheduler):
     scheduler.load_state_dict(ckpt["scheduler"])
     return ckpt["epoch"] + 1, ckpt.get("best_acc", 0.0)
 
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
 if __name__ == "__main__":
     args   = parse_args()
     set_seed(args.seed)
@@ -245,7 +191,7 @@ if __name__ == "__main__":
 
     train_loader, val_loader = get_dataloaders(args)
 
-    model  = ResNet18(num_classes=args.num_classes, pretrained=False).to(device)
+    model  = ResNet18(num_classes=args.num_classes, pretrained=False, dropout=args.dropout).to(device)
     total     = sum(p.numel() for p in model.parameters())
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"[Model] Total params    : {total:,}")
@@ -260,7 +206,6 @@ if __name__ == "__main__":
         weight_decay=args.weight_decay,
     )
 
-    # Cosine annealing: lr decays smoothly from args.lr → ~0 over all epochs
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
 
     scaler = GradScaler()
@@ -308,9 +253,10 @@ if __name__ == "__main__":
                 "best_acc":  best_acc,
             },
             directory=args.checkpoint_dir,
+            best_path=args.best_path,
             epoch=epoch,
             is_best=is_best,
         )
 
     print(f"\nTRAINING COMPLETE — Best val acc: {best_acc:.3f}%")
-    print(f"Best weights saved at: {args.checkpoint_dir}/best.pth")
+    print(f"Best weights saved at: {args.best_path}")

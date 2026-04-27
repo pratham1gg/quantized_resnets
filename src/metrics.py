@@ -6,16 +6,8 @@ import torch
 
 WARMUP_BATCHES = 30
 
-
 @dataclass
 class MetricsTracker:
-    """
-    Tracks:
-      - Top-1 / Top-5 accuracy (running + final)
-      - Loss
-      - Batch time and pure inference time
-      - Stores per-batch values for plotting
-    """
     correct_top1: int = 0
     correct_top5: int = 0
     total: int = 0
@@ -47,26 +39,12 @@ class MetricsTracker:
         infer_time_s: float,
         batch_size: int,
     ) -> None:
-        """
-        Args:
-            outputs: logits, shape [N, num_classes]
-            targets: labels, shape [N]
-            loss_value: float or None
-            batch_time_s: end-to-end batch time in seconds
-            infer_time_s: model forward time in seconds
-            batch_size: N
-        """
         self.total += int(batch_size)
 
-        # top-k predictions once
-        # pred: [N, 5]
         _, pred = outputs.topk(k=5, dim=1, largest=True, sorted=True)
 
-        # Top-1: compare first column
         self.correct_top1 += int((pred[:, 0] == targets).sum().item())
 
-        # Top-5: check if target is in any of the 5
-        # matches: [N] bool
         matches = (pred == targets.unsqueeze(1)).any(dim=1)
         self.correct_top5 += int(matches.sum().item())
 
@@ -76,14 +54,10 @@ class MetricsTracker:
         if loss_value is not None:
             self.losses.append(float(loss_value))
 
-        # store running accuracies for plots
         self.top1_running.append(100.0 * self.correct_top1 / self.total)
         self.top5_running.append(100.0 * self.correct_top5 / self.total)
 
     def summary(self) -> Dict[str, Any]:
-        """
-        Returns a dict ready to dump to JSON.
-        """
         if self.total == 0:
             return {
                 "top1_acc": 0.0,
@@ -118,9 +92,9 @@ class MetricsTracker:
             "infer_ms_max": float(infer_times.max() * 1000.0) if infer_times.size else None,
             "infer_ms_std": float(infer_times.std() * 1000.0) if infer_times.size else None,   
             
-            "throughput_infer_sps": float(throughput_infer) if throughput_infer is not None else None, # forward-pass throughput
+            "throughput_infer_sps": float(throughput_infer) if throughput_infer is not None else None, 
 
-            "throughput_sps": float(throughput) if throughput is not None else None, # end to end pipeline throughput
+            "throughput_sps": float(throughput) if throughput is not None else None, 
             "total_samples": int(self.total),
             "total_batches": int(len(self.infer_times_s)),
         }

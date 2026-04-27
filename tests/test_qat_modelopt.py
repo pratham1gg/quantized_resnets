@@ -1,8 +1,3 @@
-"""
-Tests for src/qat_modelopt/quantize.py and src/qat_modelopt/train_utils.py.
-modelopt and pytorch_quantization are not installed locally, so both are
-fully mocked at the module level before importing the units under test.
-"""
 import sys
 import types
 import pytest
@@ -10,10 +5,6 @@ import torch
 import torch.nn as nn
 from pathlib import Path
 from unittest.mock import MagicMock, patch, call
-
-# ---------------------------------------------------------------------------
-# Stub out modelopt before any import touches it
-# ---------------------------------------------------------------------------
 
 def _stub_modelopt():
     mto = types.ModuleType("modelopt.torch.opt")
@@ -43,16 +34,10 @@ sys.path.insert(0, str(SRC / "qat_modelopt"))
 from qat_modelopt import quantize as qmod
 from qat_modelopt import train_utils as tutils
 
-
-# ---------------------------------------------------------------------------
-# Tiny model fixture
-# ---------------------------------------------------------------------------
-
 @pytest.fixture
 def tiny_model():
     from model import ResNet18
     return ResNet18(num_classes=3, pretrained=False).eval()
-
 
 @pytest.fixture
 def tiny_loader():
@@ -60,11 +45,6 @@ def tiny_loader():
     ds = TensorDataset(torch.randn(8, 3, 224, 224),
                        torch.zeros(8, dtype=torch.long))
     return DataLoader(ds, batch_size=4)
-
-
-# ---------------------------------------------------------------------------
-# get_quant_cfg
-# ---------------------------------------------------------------------------
 
 class TestGetQuantCfg:
     def test_int8_returns_correct_cfg(self):
@@ -81,11 +61,6 @@ class TestGetQuantCfg:
     def test_unsupported_raises(self):
         with pytest.raises(ValueError, match="int8"):
             qmod.get_quant_cfg("fp8")
-
-
-# ---------------------------------------------------------------------------
-# get_model (qat_modelopt version)
-# ---------------------------------------------------------------------------
 
 class TestQatModeloptGetModel:
     def test_loads_nested_state_dict(self, tmp_path):
@@ -108,11 +83,6 @@ class TestQatModeloptGetModel:
                                      loaded.state_dict().items()):
             assert torch.allclose(v1, v2)
 
-
-# ---------------------------------------------------------------------------
-# quantize_model
-# ---------------------------------------------------------------------------
-
 class TestQuantizeModel:
     def test_calls_mtq_quantize(self, tiny_model, tiny_loader):
         _MTQ.quantize.reset_mock()
@@ -125,13 +95,11 @@ class TestQuantizeModel:
         result = qmod.quantize_model(tiny_model, {"int8": True}, tiny_loader,
                                      num_calib_batches=2,
                                      device=torch.device("cpu"))
-        assert result is tiny_model  # mock returns model unchanged
+        assert result is tiny_model  
 
     def test_forward_loop_stops_at_calib_batches(self, tiny_model, tiny_loader):
-        """Verify forward_loop respects num_calib_batches by checking call args."""
         seen = []
         def fake_quantize(model, cfg, forward_loop):
-            # Actually run the forward_loop to check it stops at 1 batch
             for i, (x, _) in enumerate(tiny_loader):
                 seen.append(i)
                 if i >= 1 - 1:
@@ -142,12 +110,7 @@ class TestQuantizeModel:
         qmod.quantize_model(tiny_model, {"int8": True}, tiny_loader,
                             num_calib_batches=1, device=torch.device("cpu"))
         assert len(seen) == 1
-        _MTQ.quantize.side_effect = lambda model, cfg, fwd: model  # reset
-
-
-# ---------------------------------------------------------------------------
-# save_modelopt_state / restore_modelopt_state
-# ---------------------------------------------------------------------------
+        _MTQ.quantize.side_effect = lambda model, cfg, fwd: model  
 
 class TestSaveRestoreState:
     def test_save_calls_mto_modelopt_state(self, tiny_model, tmp_path):
@@ -162,11 +125,6 @@ class TestSaveRestoreState:
         _MTO.restore_from_modelopt_state.reset_mock()
         qmod.restore_modelopt_state(tiny_model, str(p))
         _MTO.restore_from_modelopt_state.assert_called_once()
-
-
-# ---------------------------------------------------------------------------
-# train_utils: train_one_epoch
-# ---------------------------------------------------------------------------
 
 class TestTrainOneEpoch:
     def test_returns_loss_and_acc(self, tiny_model, tiny_loader):
@@ -192,11 +150,6 @@ class TestTrainOneEpoch:
         )
         assert loss > 0.0
 
-
-# ---------------------------------------------------------------------------
-# train_utils: validate
-# ---------------------------------------------------------------------------
-
 class TestValidate:
     def test_returns_loss_top1_top5(self, tiny_model, tiny_loader):
         val_loss, top1, top5 = tutils.validate(
@@ -211,11 +164,6 @@ class TestValidate:
             tiny_model, tiny_loader, nn.CrossEntropyLoss(), torch.device("cpu")
         )
         assert top5 >= top1
-
-
-# ---------------------------------------------------------------------------
-# train_utils: save_checkpoint / load_checkpoint
-# ---------------------------------------------------------------------------
 
 class TestCheckpointing:
     def _make_training_objects(self, tiny_model):

@@ -1,8 +1,3 @@
-"""
-train_utils.py
---------------
-Training / validation loop utilities for QAT fine-tuning.
-"""
 
 import os
 
@@ -13,7 +8,6 @@ from torch.amp.autocast_mode import autocast
 from torch.amp.grad_scaler import GradScaler
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
 
 def train_one_epoch(
     model:     nn.Module,
@@ -52,7 +46,6 @@ def train_one_epoch(
     epoch_acc  = 100.0 * running_correct / len(loader.dataset)
     return epoch_loss, epoch_acc
 
-
 @torch.no_grad()
 def validate(
     model:     nn.Module,
@@ -87,7 +80,6 @@ def validate(
     top5     = 100.0 * top5_correct    / n
     return val_loss, top1, top5
 
-
 def save_checkpoint(
     state:     dict,
     directory: str,
@@ -101,7 +93,6 @@ def save_checkpoint(
         best_path = os.path.join(directory, "qat_phase1_best.pth")
         torch.save(state, best_path)
         print(f"  [Checkpoint] Best QAT model → {best_path}")
-
 
 def load_checkpoint(
     path:      str,
