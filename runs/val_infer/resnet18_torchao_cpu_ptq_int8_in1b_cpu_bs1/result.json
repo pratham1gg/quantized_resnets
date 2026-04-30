@@ -1,0 +1,46 @@
+{
+  "config": {
+    "backend": "torchao_cpu_ptq",
+    "batch_size": 1,
+    "cpu_calib_num_batches": 1,
+    "device": "cpu",
+    "imagenet_path": "/home/pf4636/imagenet",
+    "input_quant_bits": 1,
+    "model_precision": "int8",
+    "num_classes": 100,
+    "num_eval_batches": 500,
+    "num_workers": 8,
+    "output_root": "../runs",
+    "seed": 42,
+    "trt_calib_num_batches": 32,
+    "trt_calib_seed": 42,
+    "trt_engine_tag": "",
+    "trt_opset": 1,
+    "trt_static_shape": true,
+    "trt_workspace_mb": 2048
+  },
+  "error": null,
+  "results": {
+    "batch_ms_avg": 11.902960276904892,
+    "infer_ms_avg": 11.781394625815782,
+    "infer_ms_max": 53.047341061756015,
+    "infer_ms_min": 5.549353081732988,
+    "infer_ms_std": 6.71033956082816,
+    "loss_avg": 3.0395861235625565,
+    "throughput_infer_sps": 84.879594628701,
+    "throughput_sps": 84.01271421028622,
+    "top1_acc": 30.21276595744681,
+    "top5_acc": 56.170212765957444,
+    "total_batches": 470,
+    "total_samples": 470
+  },
+  "run_id": "resnet18_torchao_cpu_ptq_int8_in1b_cpu_bs1",
+  "status": "ok",
+  "system": {
+    "cuda_available": true,
+    "device": "cpu",
+    "timestamp": "2026-04-29 21:24:25",
+    "torch": "2.10.0+cu130"
+  },
+  "total_eval_time_sec": 12.324
+}

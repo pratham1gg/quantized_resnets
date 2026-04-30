@@ -70,7 +70,7 @@ def _get_trt_paths(cfg: ExperimentConfig) -> Tuple[Path, Path, Path]:
       fp32 / fp16         -> resnet18.onnx              (plain export)
       int8 / fp8 / int4   -> resnet18_<prec>_qdq.onnx   (QDQ-annotated, from modelopt)
     """
-    repo_root  = Path(cfg.output_root).resolve().parent
+    repo_root  = Path(__file__).resolve().parents[1]
     onnx_dir   = repo_root / "onnx"
     engine_dir = repo_root / "engines"
 

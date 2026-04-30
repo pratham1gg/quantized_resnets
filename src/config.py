@@ -30,7 +30,7 @@ class ExperimentConfig:
     num_eval_batches: Optional[int] = None
     cpu_calib_num_batches: int = 10
 
-    output_root: str = "../runs"                       
+    output_root: str = "../runs/val_infer"
 
     trt_opset: int = 1
     trt_static_shape: bool = True
