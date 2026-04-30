@@ -3,3 +3,20 @@
 __pycache__/
 checkpoints/
 engines/
+
+# Experiment outputs (transient)
+runs/
+onnx/
+
+# Python tooling
+.pytest_cache/
+*.egg-info/
+.ipynb_checkpoints/
+
+# Editor / OS
+.DS_Store
+*.swp
+
+# Secrets
+.env
+.env.local
