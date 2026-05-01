@@ -10,7 +10,7 @@
     "num_classes": 100,
     "num_eval_batches": 500,
     "num_workers": 8,
-    "output_root": "../runs",
+    "output_root": "../runs/val_infer",
     "seed": 42,
     "trt_calib_num_batches": 32,
     "trt_calib_seed": 42,
@@ -21,14 +21,14 @@
   },
   "error": null,
   "results": {
-    "batch_ms_avg": 0.7123304590424325,
-    "infer_ms_avg": 0.4867346605603048,
-    "infer_ms_max": 1.2278559152036905,
-    "infer_ms_min": 0.26477896608412266,
-    "infer_ms_std": 0.1935909099296226,
-    "loss_avg": 3.0398461121827998,
-    "throughput_infer_sps": 2054.507478158325,
-    "throughput_sps": 1403.8428194468538,
+    "batch_ms_avg": 0.6743171133418033,
+    "infer_ms_avg": 0.4444333967415893,
+    "infer_ms_max": 1.1275929864495993,
+    "infer_ms_min": 0.2527758479118347,
+    "infer_ms_std": 0.16398365960663325,
+    "loss_avg": 3.0398064617662035,
+    "throughput_infer_sps": 2250.055930385984,
+    "throughput_sps": 1482.9817903392168,
     "top1_acc": 30.21276595744681,
     "top5_acc": 56.170212765957444,
     "total_batches": 470,
@@ -39,8 +39,8 @@
   "system": {
     "cuda_available": true,
     "device": "cuda",
-    "timestamp": "2026-04-30 10:53:26",
+    "timestamp": "2026-04-30 18:02:27",
     "torch": "2.10.0+cu130"
   },
-  "total_eval_time_sec": 11.551
+  "total_eval_time_sec": 4.845
 }
