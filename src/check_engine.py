@@ -1,8 +1,9 @@
+# pyright: reportAttributeAccessIssue=false
 import tensorrt as trt
 import json
 from collections import Counter
 
-ENGINE_PATH = "/home/pf4636/code/resnet/quantized_resnets/engines/resnet18_tensorrt_fp8_in8b_cuda_bs1.engine"
+ENGINE_PATH = "/home/pf4636/code/resnet/quantized_resnets/engines/resnet18_tensorrt_int4_in1b_cuda_bs1.engine"
 
 runtime = trt.Runtime(trt.Logger(trt.Logger.WARNING))
 with open(ENGINE_PATH, "rb") as f:

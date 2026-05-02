@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -7,26 +7,29 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
+        python3.12 \
+        python3.12-venv \
+        python3-pip \
         git \
-        curl \
         ca-certificates \
         libgl1 \
         libglib2.0-0 \
-        libsm6 \
-        libxext6 \
-        libxrender1 \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3.12 /usr/local/bin/python \
+    && ln -sf /usr/bin/python3.12 /usr/local/bin/python3
 
 WORKDIR /workspace
 
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH" \
+    VIRTUAL_ENV=/opt/venv
+
 RUN pip install --upgrade pip setuptools wheel \
- && pip install nvidia-pyindex
+ && pip install \
+        torch==2.11.0 torchvision==0.26.0 \
+        --index-url https://download.pytorch.org/whl/cu126
 
 COPY requirements-qat.txt .
 RUN pip install -r requirements-qat.txt
 
-EXPOSE 8888
-
-CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", \
-     "--allow-root", "--ServerApp.token=", "--ServerApp.password="]
+CMD ["bash"]
