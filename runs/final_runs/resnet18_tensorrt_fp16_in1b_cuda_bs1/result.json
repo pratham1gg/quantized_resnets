@@ -10,7 +10,7 @@
     "num_classes": 100,
     "num_eval_batches": 500,
     "num_workers": 8,
-    "output_root": "../runs",
+    "output_root": "../runs/val_infer",
     "seed": 42,
     "trt_calib_num_batches": 32,
     "trt_calib_seed": 42,
@@ -21,16 +21,16 @@
   },
   "error": null,
   "results": {
-    "batch_ms_avg": 0.6710225790540906,
-    "infer_ms_avg": 0.46303828118091567,
-    "infer_ms_max": 1.0649010073393583,
-    "infer_ms_min": 0.25068805553019047,
-    "infer_ms_std": 0.17153724550805557,
-    "loss_avg": 2.908672529625449,
-    "throughput_infer_sps": 2159.6486524821166,
-    "throughput_sps": 1490.262818591967,
+    "batch_ms_avg": 0.6626224601046836,
+    "infer_ms_avg": 0.4514344343717428,
+    "infer_ms_max": 0.970534048974514,
+    "infer_ms_min": 0.2620639279484749,
+    "infer_ms_std": 0.15621117119311742,
+    "loss_avg": 2.9086177207489916,
+    "throughput_infer_sps": 2215.1611039412423,
+    "throughput_sps": 1509.15500184225,
     "top1_acc": 31.914893617021278,
-    "top5_acc": 63.40425531914894,
+    "top5_acc": 63.829787234042556,
     "total_batches": 470,
     "total_samples": 470
   },
@@ -39,8 +39,8 @@
   "system": {
     "cuda_available": true,
     "device": "cuda",
-    "timestamp": "2026-04-30 11:54:37",
+    "timestamp": "2026-05-02 20:13:58",
     "torch": "2.10.0+cu130"
   },
-  "total_eval_time_sec": 1.212
+  "total_eval_time_sec": 1.583
 }
