@@ -1,165 +1,169 @@
-
 import argparse
 import os
 import random
 import sys
 from pathlib import Path
 
-import numpy as np
-import PIL.ImageFile
-PIL.ImageFile.LOAD_TRUNCATED_IMAGES = True
-
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.amp.grad_scaler import GradScaler
-from torch.utils.data import DataLoader
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "src" / "qat_modelopt"))
 
-from config import ExperimentConfig
-from data import build_imagenet_transform, build_train_holdout_split
-from qat_modelopt.quantize import get_model, get_quant_cfg, quantize_model
-from qat_modelopt.train_utils import (
-    load_checkpoint,
-    save_checkpoint,
-    train_one_epoch,
-    validate,
-)
+import numpy as np
+import PIL.ImageFile
+PIL.ImageFile.LOAD_TRUNCATED_IMAGES = True
+import torch
+import torch.nn as nn
+from torch.amp.grad_scaler import GradScaler
+from torch.utils.data import DataLoader, Subset
+from torchvision import transforms
+
+from quantize import get_quant_cfg, get_model, quantize_model
+from train_utils import train_one_epoch, validate, save_checkpoint, load_checkpoint
+from data import build_train_holdout_split
+
+BEST_CHECKPOINT_PATH = ROOT / "checkpoints" / "best.pth"
+DEFAULT_OUTPUT_DIR   = ROOT / "checkpoints" / "qat"
+
+_IMAGENET_MEAN = [0.485, 0.456, 0.406]
+_IMAGENET_STD  = [0.229, 0.224, 0.225]
+
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="ModelOpt QAT — INT8 / INT4")
-    p.add_argument("--precision",       default="int8", choices=["int8", "int4"],
-                   help="Quantization precision: int8 or int4")
-    p.add_argument("--data",            default="/home/pf4636/imagenet",
-                   help="ImageNet root containing train/ and val/")
-    p.add_argument("--checkpoint",      default=str(ROOT / "checkpoints" / "best.pth"),
-                   help="FP32 pretrained checkpoint to start from")
-    p.add_argument("--checkpoint-dir",  default=str(ROOT / "checkpoints" / "qat_modelopt"),
-                   help="Root directory for QAT checkpoints")
-    p.add_argument("--epochs",          default=15,   type=int)
-    p.add_argument("--batch-size",      default=256,  type=int)
-    p.add_argument("--lr",              default=1e-4, type=float)
-    p.add_argument("--momentum",        default=0.9,  type=float)
-    p.add_argument("--weight-decay",    default=1e-4, type=float)
-    p.add_argument("--workers",         default=8,    type=int)
-    p.add_argument("--num-classes",     default=100,  type=int)
-    p.add_argument("--calib-batches",   default=32,   type=int,
-                   help="Calibration batches fed to mtq.quantize()")
-    p.add_argument("--input-quant-bits", default=8,  type=int,
-                   help="Input quantization bits for data transforms (1,2,4,8)")
-    p.add_argument("--resume",          default=None, type=str,
-                   help="Path to a .pth training checkpoint to resume from")
-    p.add_argument("--resume-mostate",  default=None, type=str,
-                   help="Path to the matching _mostate.pt file (required with --resume)")
-    p.add_argument("--seed",            default=42,   type=int)
+    p = argparse.ArgumentParser(description="INT8/INT4 QAT for ResNet-18 using ModelOpt")
+    p.add_argument("--data",              default="/home/pf4636/imagenet")
+    p.add_argument("--checkpoint",        default=str(BEST_CHECKPOINT_PATH),
+                   help="FP32 checkpoint to start QAT from")
+    p.add_argument("--output-dir",        default=str(DEFAULT_OUTPUT_DIR))
+    p.add_argument("--precision",         choices=["int8", "int4"], default="int8")
+    p.add_argument("--epochs",            type=int,   default=15)
+    p.add_argument("--batch-size",        type=int,   default=64)
+    p.add_argument("--num-workers",       type=int,   default=8)
+    p.add_argument("--lr",                type=float, default=1e-4)
+    p.add_argument("--momentum",          type=float, default=0.9)
+    p.add_argument("--weight-decay",      type=float, default=1e-4)
+    p.add_argument("--num-calib-batches", type=int,   default=8,
+                   help="Calibration batches (~512 images at default batch-size=64)")
+    p.add_argument("--num-classes",       type=int,   default=100)
+    p.add_argument("--seed",              type=int,   default=42)
+    p.add_argument("--gpu",               type=int,   default=None)
+    p.add_argument("--resume",            type=str,   default=None,
+                   help="Resume from a QAT .pth checkpoint")
+    p.add_argument("--resume-mostate",    type=str,   default=None,
+                   help="Paired _mostate.pt for --resume (inferred from --resume path if omitted)")
     return p.parse_args()
+
 
 def set_seed(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark     = False
+    torch.backends.cudnn.benchmark = False
 
-def get_dataloaders(args: argparse.Namespace):
-    cfg = ExperimentConfig(
-        imagenet_path=args.data,
-        batch_size=args.batch_size,
-        num_workers=args.workers,
-        input_quant_bits=args.input_quant_bits,
-        num_classes=args.num_classes,
-    )
 
-    transform = build_imagenet_transform(cfg)
-    train_ds, val_ds = build_train_holdout_split(
+def _subset(dataset, num_classes: int) -> Subset:
+    indices = [i for i, (_, label) in enumerate(dataset.samples) if label < num_classes]
+    return Subset(dataset, indices)
+
+
+def get_dataloaders(args):
+    normalize = transforms.Normalize(mean=_IMAGENET_MEAN, std=_IMAGENET_STD)
+    train_transform = transforms.Compose([
+        transforms.RandomResizedCrop(224),
+        transforms.RandomHorizontalFlip(),
+        transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4),
+        transforms.ToTensor(),
+        normalize,
+    ])
+    val_transform = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        normalize,
+    ])
+
+    train_subset, holdout_subset = build_train_holdout_split(
         data_root=args.data,
         num_classes=args.num_classes,
         seed=args.seed,
-        train_transform=transform,
-        eval_transform=transform,
+        train_transform=train_transform,
+        eval_transform=val_transform,
     )
 
     train_loader = DataLoader(
-        train_ds, batch_size=args.batch_size, shuffle=True,
-        num_workers=args.workers, pin_memory=True,
+        train_subset, batch_size=args.batch_size, shuffle=True,
+        num_workers=args.num_workers, pin_memory=True, drop_last=True,
     )
     val_loader = DataLoader(
-        val_ds, batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True,
+        holdout_subset, batch_size=args.batch_size, shuffle=False,
+        num_workers=args.num_workers, pin_memory=True,
     )
+    # num_workers=0 avoids multiprocessing issues during mtq.quantize calibration
+    calib_loader = DataLoader(
+        holdout_subset, batch_size=args.batch_size, shuffle=True,
+        num_workers=0, pin_memory=True,
+    )
+    return train_loader, val_loader, calib_loader
 
-    return train_loader, val_loader
 
 if __name__ == "__main__":
-    args   = parse_args()
+    args = parse_args()
     set_seed(args.seed)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    if args.gpu is not None:
+        torch.cuda.set_device(args.gpu)
+    device = torch.device(
+        f"cuda:{args.gpu}" if args.gpu is not None
+        else "cuda" if torch.cuda.is_available()
+        else "cpu"
+    )
     print(f"[Device] {device}")
 
-    if args.resume and not args.resume_mostate:
-        raise ValueError("--resume requires --resume-mostate (path to _mostate.pt)")
+    train_loader, val_loader, calib_loader = get_dataloaders(args)
 
-    device_str = device.type
-    run_name   = (f"resnet18_modelopt_{args.precision}"
-                  f"_in{args.input_quant_bits}b_{device_str}_bs{args.batch_size}")
-    run_dir    = Path(args.checkpoint_dir) / run_name
-    os.makedirs(run_dir, exist_ok=True)
-    print(f"[Checkpoints] {run_dir}")
-
-    model = get_model(args.checkpoint, num_classes=args.num_classes)
-    print(f"[Model] FP32 weights loaded from {args.checkpoint}")
-
-    train_loader, val_loader = get_dataloaders(args)
-
-    quant_cfg = get_quant_cfg(args.precision)
-    if args.resume is None:
-        model = quantize_model(model, quant_cfg, train_loader, args.calib_batches, device)
-    else:
-        model = model.to(device)
-
+    model = get_model(args.checkpoint, num_classes=args.num_classes).to(device)
     criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
-    optimizer = optim.SGD(
-        model.parameters(),
-        lr=args.lr,
-        momentum=args.momentum,
-        weight_decay=args.weight_decay,
+
+    print("[FP32] Evaluating baseline ...")
+    _, fp32_top1, fp32_top5 = validate(model, val_loader, criterion, device)
+    print(f"[FP32] Top-1: {fp32_top1:.2f}%  Top-5: {fp32_top5:.2f}%")
+
+    print(f"[PTQ] Calibrating for {args.precision.upper()} ...")
+    quant_cfg = get_quant_cfg(args.precision)
+    model = quantize_model(model, quant_cfg, calib_loader, args.num_calib_batches, device)
+
+    _, ptq_top1, ptq_top5 = validate(model, val_loader, criterion, device)
+    print(f"[PTQ] Top-1: {ptq_top1:.2f}%  Top-5: {ptq_top5:.2f}%")
+
+    optimizer = torch.optim.SGD(
+        model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay
     )
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
-    scaler    = GradScaler()
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=0)
+    scaler = GradScaler()
 
     start_epoch = 1
-    best_acc    = 0.0
+    best_acc = ptq_top1
     if args.resume:
+        mo_path = args.resume_mostate or args.resume.replace(".pth", "_mostate.pt")
         start_epoch, best_acc = load_checkpoint(
-            ckpt_path=args.resume,
-            mo_path=args.resume_mostate,
-            model=model,
-            optimizer=optimizer,
-            scaler=scaler,
-            scheduler=scheduler,
+            args.resume, mo_path, model, optimizer, scaler, scheduler
         )
-        print(f"[Resume] Epoch {start_epoch}, best_acc={best_acc:.3f}%")
 
+    print(f"[QAT] Fine-tuning for {args.epochs} epochs ...")
     for epoch in range(start_epoch, args.epochs + 1):
-        lr = optimizer.param_groups[0]["lr"]
-        print(f"\n[Epoch {epoch}/{args.epochs}]  lr={lr:.2e}")
-
+        print(f"\n[INFO] Epoch {epoch}/{args.epochs}  lr={optimizer.param_groups[0]['lr']:.6f}")
         train_loss, train_acc = train_one_epoch(
             model, train_loader, criterion, optimizer, scaler, device, epoch
         )
-        val_loss, val_top1, val_top5 = validate(model, val_loader, criterion, device)
         scheduler.step()
+        val_loss, top1, top5 = validate(model, val_loader, criterion, device)
+        print(f"  Train loss: {train_loss:.4f}  acc: {train_acc:.2f}%")
+        print(f"  Val   loss: {val_loss:.4f}  top-1: {top1:.2f}%  top-5: {top5:.2f}%")
 
-        print(f"  Train  loss={train_loss:.4f}  acc={train_acc:.2f}%")
-        print(f"  Val    loss={val_loss:.4f}  top1={val_top1:.2f}%  top5={val_top5:.2f}%")
-        print("-" * 60)
-
-        is_best  = val_top1 > best_acc
-        best_acc = max(val_top1, best_acc)
+        is_best  = top1 > best_acc
+        best_acc = max(top1, best_acc)
 
         save_checkpoint(
             model=model,
@@ -171,10 +175,10 @@ if __name__ == "__main__":
                 "scheduler": scheduler.state_dict(),
                 "best_acc":  best_acc,
             },
-            directory=str(run_dir),
+            directory=args.output_dir,
             epoch=epoch,
             is_best=is_best,
         )
 
-    print(f"\nQAT COMPLETE — Best val top-1: {best_acc:.3f}%")
-    print(f"Best weights saved to: {run_dir}/qat_modelopt_best.pth")
+    print(f"\nQAT COMPLETE — Best val top-1: {best_acc:.2f}%")
+    print(f"Best weights: {os.path.join(args.output_dir, 'qat_modelopt_best.pth')}")
