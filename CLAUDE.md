@@ -13,7 +13,7 @@ Do not use code comments as a source of truth.
 
 ## Project purpose
 
-Thesis experiments comparing ResNet-18 inference accuracy and latency across model precisions (fp32/fp16/int8/fp8/int4) and input-quantization bit-widths (1/2/4/8), using three inference backends: vanilla PyTorch, torchao CPU PT2E PTQ, and TensorRT. All reported experiments are generated exclusively using code in `src/`. The `training/` directory contains training pipelines that produce the model weights consumed by `src/`.
+Thesis experiments comparing ResNet-18 inference accuracy and latency across model precisions (fp32/fp16/int8/fp8/int4) and input-quantization bit-widths (1/2/4/8), using three inference backends: vanilla PyTorch, torchao CPU PT2E PTQ, and TensorRT PTQ (int8/fp8/int4 via QDQ ONNX from ModelOpt). All reported experiments are generated exclusively using code in `src/`. The `training/` directory contains training pipelines that produce the model weights consumed by `src/`.
 
 ## Directory layout
 
@@ -91,7 +91,7 @@ Notes: `--shm-size=4g` is required (DataLoader workers exhaust the default 64 MB
 |---|---|
 | `pytorch` | `get_model` → `apply_precision` (fp32/fp16 only) → `evaluate` |
 | `torchao_cpu_ptq` | `get_model` → `quantize_int8_x86_pt2e` (CPU calibration) → `evaluate` |
-| `tensorrt` | 3-step pipeline: ONNX export → engine build → `trt_evaluate` |
+| `tensorrt` | PTQ: 3-step pipeline: ONNX export → engine build → `trt_evaluate` (int8/fp8/int4 use QDQ ONNX from ModelOpt; fp32/fp16 use plain ONNX) |
 
 ### TensorRT quantization relies on externally-produced QDQ ONNX
 
