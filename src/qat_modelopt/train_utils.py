@@ -21,6 +21,7 @@ def train_one_epoch(
     model.train()
     running_loss    = 0.0
     running_correct = 0
+    n_seen          = 0
     n_batches       = 0
 
     for images, labels in tqdm(loader, desc=f"Epoch {epoch} [train]"):
@@ -40,10 +41,11 @@ def train_one_epoch(
         running_loss    += loss.item()
         _, preds         = torch.max(outputs.detach(), 1)
         running_correct += (preds == labels).sum().item()
+        n_seen          += labels.size(0)
         n_batches       += 1
 
     epoch_loss = running_loss / n_batches
-    epoch_acc  = 100.0 * running_correct / len(loader.dataset)
+    epoch_acc  = 100.0 * running_correct / n_seen
     return epoch_loss, epoch_acc
 
 @torch.no_grad()
@@ -104,20 +106,13 @@ def save_checkpoint(
         torch.save(mto.modelopt_state(model), best_mo)
         print(f"  [Checkpoint] Best model → {best_ckpt}")
 
-def load_checkpoint(
+def load_training_state(
     ckpt_path: str,
-    mo_path:   str,
     model:     nn.Module,
     optimizer: optim.Optimizer,
     scaler:    GradScaler,
     scheduler,
 ) -> tuple[int, float]:
-    import modelopt.torch.opt as mto
-
-    print(f"[Resume] Restoring modelopt state from {mo_path}")
-    mo_state = torch.load(mo_path, map_location="cpu")
-    mto.restore_from_modelopt_state(model, mo_state)
-
     print(f"[Resume] Loading checkpoint from {ckpt_path}")
     ckpt = torch.load(ckpt_path, map_location="cpu")
     model.load_state_dict(ckpt["model"])

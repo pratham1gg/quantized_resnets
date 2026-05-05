@@ -9,32 +9,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 2. This CLAUDE.md file (authoritative documentation)
 3. Git commit history (explains why changes were made)
 
-Do not use code comments as a source of truth. Example: notebook comments mention "Int8EntropyCalibrator" but the actual code uses modelopt's pre-calibrated QDQ ONNXes instead.
+Do not use code comments as a source of truth.
 
 ## Project purpose
 
-Thesis experiments comparing ResNet-18 inference accuracy and latency across model precisions (fp32/fp16/int8/fp8/int4) and input-quantization bit-widths (1/2/4/8), using three backends: vanilla PyTorch, torchao CPU PT2E PTQ, and TensorRT. All reported experiments are generated exclusively using code in `src/`. The `training/` directory contains auxiliary training pipelines that produce the model weights consumed by `src/`.
+Thesis experiments comparing ResNet-18 inference accuracy and latency across model precisions (fp32/fp16/int8/fp8/int4) and input-quantization bit-widths (1/2/4/8), using three inference backends: vanilla PyTorch, torchao CPU PT2E PTQ, and TensorRT. All reported experiments are generated exclusively using code in `src/`. The `training/` directory contains training pipelines that produce the model weights consumed by `src/`.
 
 ## Directory layout
 
 ```
 quantized_resnets/
-├── src/                  # Core experiment library (config, runner, backends, metrics)
-│   └── qat/              # QAT modules imported by training/train_qat_phase1.py
-├── training/             # Standalone training CLIs and their notebooks
-│   ├── train_fp32.py     # FP32 baseline training on ImageNet-1K
-│   ├── train_qat_phase1.py  # Phase-1 INT8 QAT fine-tuning
-│   ├── resnet18.py       # ResNet-18 definition used by train_fp32.py
-│   └── train_qat_phase1.ipynb
-├── notebooks/            # Experiment notebooks (run in order 00 → 07)
-├── results/figures/      # Committed output figures and PDFs
-├── checkpoints/          # Gitignored model weights
-│   ├── best.pth          # FP32 best checkpoint (used by src/model.py)
-│   ├── fp32/             # Per-epoch FP32 training history
-│   └── qat/              # QAT run checkpoints, one subdir per run config
-├── engines/              # Gitignored TRT compiled engines
-├── onnx/                 # ONNX exports (fp32 plain + QDQ-annotated for int8/fp8/int4)
-└── runs/                 # Gitignored per-run result.json files
+├── src/                           # Core experiment library (config, runner, backends, metrics)
+│   └── qat_modelopt/              # ModelOpt-based QAT modules (quantize.py, train_utils.py)
+├── training/                      # Training pipelines (produce weights for src/)
+│   ├── train_fp32.py              # FP32 baseline training on ImageNet-1K
+│   ├── train_qat_modelopt.py      # ModelOpt INT8/INT4 QAT (CLI form)
+│   └── train_qat_modelopt.ipynb   # Same flow as the .py, but interactive
+├── notebooks/                     # Experiment notebooks (run in order 00 → 09)
+├── qat/                           # Legacy: train_qat_phase1.ipynb (old pytorch-quantization
+│                                  # flow, no longer wired up — kept for reference only)
+├── checkpoints/                   # Gitignored model weights
+│   ├── best.pth                   # FP32 best checkpoint (used by src/model.py)
+│   ├── fp32/                      # Per-epoch FP32 training history
+│   └── qat/                       # QAT runs, one subdir per config
+│       └── <PREC>_in<N>b/         # e.g. int8_in4b/, int8_in0b/ ("0b" = no input quant)
+│           ├── qat_modelopt_best.pth          # weights + training state
+│           └── qat_modelopt_best_mostate.pt   # ModelOpt quantization graph spec
+├── engines/                       # Gitignored TRT compiled engines
+├── onnx/                          # ONNX exports (fp32 plain + QDQ-annotated for int8/fp8/int4)
+└── runs/                          # Gitignored per-run result.json files
+    ├── val_infer/                 # Standard runner.run_experiment() outputs
+    └── qat/                       # 06_qat_inference notebook outputs
 ```
 
 ## Running experiments
@@ -51,11 +56,26 @@ cfg = ExperimentConfig(backend="tensorrt", model_precision="int8",
 payload, tracker = run_experiment(cfg)   # writes runs/<run_id>/result.json
 ```
 
-Training scripts (standalone CLIs, not part of the `src/` experiment runner):
-- `python training/train_fp32.py` — FP32 baseline training on ImageNet-1K.
-- `python training/train_qat_phase1.py` — Phase-1 INT8 QAT fine-tuning using `pytorch-quantization`.
+Notebooks are numbered (`00_env_sanity` → `09_test_inference`) and are intended to be run in order. Notable additions:
+- `06_qat_inference.ipynb` — sweeps QAT-trained models across input bit-widths and writes `runs/qat/<run_id>/result.json` mirroring the standard payload schema.
 
-Notebooks are numbered (`00_env_sanity` → `07_analysis`) and are intended to be run in order.
+Training:
+- `python training/train_fp32.py` — FP32 baseline training on ImageNet-1K.
+- `python training/train_qat_modelopt.py` — ModelOpt INT8/INT4 QAT (CLI). Same flow as the `.ipynb` for headless runs.
+
+## Docker
+
+`Dockerfile.qat` builds an image with torch+cu128 (Blackwell-capable, e.g. RTX 5060 Ti) plus `nvidia-modelopt` and JupyterLab. Built once via `docker build -f Dockerfile.qat -t resnet-qat:cu128 .`. Standard run command:
+
+```bash
+docker run --gpus all --shm-size=4g --rm -it -p 8888:8888 \
+  -v /home/pf4636/code/resnet/quantized_resnets:/workspace \
+  -v /home/pf4636/imagenet:/home/pf4636/imagenet:ro \
+  -w /workspace \
+  resnet-qat:cu128
+```
+
+Notes: `--shm-size=4g` is required (DataLoader workers exhaust the default 64 MB shm); the `nvidia-container-toolkit` package must be installed on the host for `--gpus` to work.
 
 ## Architecture
 
@@ -75,24 +95,34 @@ Notebooks are numbered (`00_env_sanity` → `07_analysis`) and are intended to b
 
 ### TensorRT quantization relies on externally-produced QDQ ONNX
 
-For `int8` / `fp8` / `int4`, `runner._get_trt_paths()` expects a pre-built QDQ-annotated ONNX at `onnx/resnet18_<prec>_qdq.onnx`. These are produced by NVIDIA **modelopt** outside this repo — the TRT builder reads Q/DQ scales directly from the graph, so there is no runtime calibrator in this codebase. `fp32` / `fp16` use the plain export `onnx/resnet18.onnx`.
+For `int8` / `fp8` / `int4`, `runner._get_trt_paths()` expects a pre-built QDQ-annotated ONNX at `onnx/resnet18_<prec>_qdq.onnx`. These are produced by NVIDIA **ModelOpt** outside this repo — the TRT builder reads Q/DQ scales directly from the graph, so there is no runtime calibrator in this codebase. `fp32` / `fp16` use the plain export `onnx/resnet18.onnx`.
 
 Both ONNX export and engine build are skipped if the target file already exists. To force a rebuild, delete the relevant file from `onnx/` or `engines/`.
 
-**Batch-size gotcha**: modelopt-exported QDQ ONNXes may have a fixed batch dimension baked in. `runner._run_tensorrt` warns if `cfg.batch_size` doesn't match; in that case re-export from modelopt with the matching batch size.
+**Batch-size gotcha**: ModelOpt-exported QDQ ONNXes may have a fixed batch dimension baked in. `runner._run_tensorrt` warns if `cfg.batch_size` doesn't match; in that case re-export from ModelOpt with the matching batch size.
 
 ### Input quantization vs. model precision
 
 These are independent axes handled in different places:
-- **Input quantization** (`cfg.input_quant_bits`, 1/2/4/8) is applied in the data transform by `Quantize01` in [src/data.py](src/data.py:10), *before* ImageNet normalization.
+- **Input quantization** (`cfg.input_quant_bits`, 1/2/4/8) is applied in the data transform by `Quantize01` in [src/data.py](src/data.py:17), *before* ImageNet normalization.
 - **Model precision** (`cfg.model_precision`) is applied to weights/activations by the backend-specific code path.
 
-### QAT code layout
+### QAT code layout (ModelOpt)
 
-- [training/train_qat_phase1.py](training/train_qat_phase1.py) — standalone CLI; adds `src/` and `src/qat/` to `sys.path`.
-- [src/qat/](src/qat/) — the reusable modules (`quantize.py`, `train_utils.py`) imported by the training script.
+- [src/qat_modelopt/quantize.py](src/qat_modelopt/quantize.py) — `get_quant_cfg`, `quantize_model` (one-shot PTQ calibration via `mtq.quantize`), `restore_modelopt_state`.
+- [src/qat_modelopt/train_utils.py](src/qat_modelopt/train_utils.py) — `train_one_epoch`, `validate`, `save_checkpoint` (saves `_best.pth` + `_best_mostate.pt`), `load_training_state`.
+- [training/train_qat_modelopt.py](training/train_qat_modelopt.py) and [training/train_qat_modelopt.ipynb](training/train_qat_modelopt.ipynb) — entry points; the notebook supports an `INPUT_QUANT_BITS` config that applies `Quantize01` inside the train/val transforms.
 
-The QAT implementation monkey-patches `nn.Conv2d`/`nn.Linear` globally via `quant_modules.initialize()`, so **ordering matters**: call `setup_quantization_descriptors()` and `initialize_quant_modules()` *before* constructing any model.
+**Resume invariant**: on resume, restore the modelopt graph **first** (`restore_modelopt_state`), build the optimizer **after**, then `load_training_state`. The optimizer must see the quantizer parameters that ModelOpt inserted.
+
+**Inference loading**:
+```python
+model = ResNet18(num_classes=N, pretrained=False)
+restore_modelopt_state(model, "..._mostate.pt")     # 1. restore graph
+ckpt = torch.load("..._best.pth")
+model.load_state_dict(ckpt["model"])                # 2. load QAT weights
+```
+Order matters — without step 1, `load_state_dict` keys won't line up.
 
 ### Checkpoints and ImageNet paths
 
@@ -102,4 +132,4 @@ The QAT implementation monkey-patches `nn.Conv2d`/`nn.Linear` globally via `quan
 
 ### Results layout
 
-Each run writes `runs/<run_id>/result.json` with config snapshot, system stamp, and `MetricsTracker.summary()` (top-1/top-5, batch + pure inference times, per-batch arrays). [src/metrics.py](src/metrics.py) drops the first 30 batches as warmup before collecting timing stats.
+Each run writes `runs/<scope>/<run_id>/result.json` with config snapshot, system stamp, and `MetricsTracker.summary()` (top-1/top-5, batch + pure inference times, per-batch arrays). [src/metrics.py](src/metrics.py) drops the first 30 batches as warmup before collecting timing stats. The `06_qat_inference` notebook hand-rolls the same payload schema so QAT inference results can be analysed alongside PTQ/TRT runs via `utils.load_runs`.

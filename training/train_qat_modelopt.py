@@ -17,8 +17,8 @@ from torch.amp.grad_scaler import GradScaler
 from torch.utils.data import DataLoader, Subset
 from torchvision import transforms
 
-from quantize import get_quant_cfg, get_model, quantize_model
-from train_utils import train_one_epoch, validate, save_checkpoint, load_checkpoint
+from quantize import get_quant_cfg, get_model, quantize_model, restore_modelopt_state
+from train_utils import train_one_epoch, validate, save_checkpoint, load_training_state
 from data import build_train_holdout_split
 
 BEST_CHECKPOINT_PATH = ROOT / "checkpoints" / "best.pth"
@@ -100,9 +100,10 @@ def get_dataloaders(args):
         holdout_subset, batch_size=args.batch_size, shuffle=False,
         num_workers=args.num_workers, pin_memory=True,
     )
-    # num_workers=0 avoids multiprocessing issues during mtq.quantize calibration
+    # Calibration draws from train_subset to avoid leaking holdout-val statistics.
+    # num_workers=0 avoids multiprocessing issues during mtq.quantize calibration.
     calib_loader = DataLoader(
-        holdout_subset, batch_size=args.batch_size, shuffle=True,
+        train_subset, batch_size=args.batch_size, shuffle=True,
         num_workers=0, pin_memory=True,
     )
     return train_loader, val_loader, calib_loader
@@ -126,16 +127,24 @@ if __name__ == "__main__":
     model = get_model(args.checkpoint, num_classes=args.num_classes).to(device)
     criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
 
-    print("[FP32] Evaluating baseline ...")
-    _, fp32_top1, fp32_top5 = validate(model, val_loader, criterion, device)
-    print(f"[FP32] Top-1: {fp32_top1:.2f}%  Top-5: {fp32_top5:.2f}%")
-
-    print(f"[PTQ] Calibrating for {args.precision.upper()} ...")
     quant_cfg = get_quant_cfg(args.precision)
-    model = quantize_model(model, quant_cfg, calib_loader, args.num_calib_batches, device)
 
-    _, ptq_top1, ptq_top5 = validate(model, val_loader, criterion, device)
-    print(f"[PTQ] Top-1: {ptq_top1:.2f}%  Top-5: {ptq_top5:.2f}%")
+    if args.resume:
+        mo_path = args.resume_mostate or args.resume.replace(".pth", "_mostate.pt")
+        print(f"[Resume] Restoring modelopt quantization state from {mo_path}")
+        restore_modelopt_state(model, mo_path)
+        model = model.to(device)
+        ptq_top1 = 0.0
+    else:
+        print("[FP32] Evaluating baseline ...")
+        _, fp32_top1, fp32_top5 = validate(model, val_loader, criterion, device)
+        print(f"[FP32] Top-1: {fp32_top1:.2f}%  Top-5: {fp32_top5:.2f}%")
+
+        print(f"[PTQ] Calibrating for {args.precision.upper()} ...")
+        model = quantize_model(model, quant_cfg, calib_loader, args.num_calib_batches, device)
+
+        _, ptq_top1, ptq_top5 = validate(model, val_loader, criterion, device)
+        print(f"[PTQ] Top-1: {ptq_top1:.2f}%  Top-5: {ptq_top5:.2f}%")
 
     optimizer = torch.optim.SGD(
         model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay
@@ -146,9 +155,8 @@ if __name__ == "__main__":
     start_epoch = 1
     best_acc = ptq_top1
     if args.resume:
-        mo_path = args.resume_mostate or args.resume.replace(".pth", "_mostate.pt")
-        start_epoch, best_acc = load_checkpoint(
-            args.resume, mo_path, model, optimizer, scaler, scheduler
+        start_epoch, best_acc = load_training_state(
+            args.resume, model, optimizer, scaler, scheduler
         )
 
     print(f"[QAT] Fine-tuning for {args.epochs} epochs ...")
