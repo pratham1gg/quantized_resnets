@@ -18,8 +18,6 @@ PIL.ImageFile.LOAD_TRUNCATED_IMAGES = True
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.amp.grad_scaler import GradScaler
-from torch.amp.autocast_mode import autocast
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm import tqdm
@@ -53,6 +51,10 @@ def set_seed(seed: int) -> None:
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
+def _worker_init_fn(worker_id):
+    np.random.seed(torch.initial_seed() % (2**32) + worker_id)
+    random.seed(torch.initial_seed() % (2**32) + worker_id)
+
 def get_dataloaders(args: argparse.Namespace):
     normalize = transforms.Normalize(
         mean=[0.485, 0.456, 0.406],
@@ -82,13 +84,20 @@ def get_dataloaders(args: argparse.Namespace):
         eval_transform=val_transform,
     )
 
+    g_train = torch.Generator()
+    g_train.manual_seed(args.seed)
+    g_val = torch.Generator()
+    g_val.manual_seed(args.seed)
+
     train_loader = DataLoader(
         train_dataset, batch_size=args.batch_size,
         shuffle=True,  num_workers=args.workers, pin_memory=True,
+        worker_init_fn=_worker_init_fn, generator=g_train,
     )
     val_loader = DataLoader(
         val_dataset,   batch_size=args.batch_size,
         shuffle=False, num_workers=args.workers, pin_memory=True,
+        worker_init_fn=_worker_init_fn, generator=g_val,
     )
 
     return train_loader, val_loader
@@ -98,7 +107,6 @@ def train_one_epoch(
     loader:    DataLoader,
     criterion: nn.Module,
     optimizer: optim.Optimizer,
-    scaler:    GradScaler,
     device:    torch.device,
 ) -> tuple[float, float]:
 
@@ -107,7 +115,7 @@ def train_one_epoch(
 
     running_loss    = 0.0
     running_correct = 0
-    counter         = 0  
+    counter         = 0
 
     for images, labels in tqdm(loader, total=len(loader)):
         counter += 1
@@ -116,15 +124,13 @@ def train_one_epoch(
 
         optimizer.zero_grad(set_to_none=True)
 
-        with autocast(device_type="cuda"):                        
-            outputs = model(images)
-            loss    = criterion(outputs, labels)
+        outputs = model(images)
+        loss    = criterion(outputs, labels)
 
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
+        loss.backward()
+        optimizer.step()
 
-        running_loss += loss.item()             
+        running_loss += loss.item()
         _, preds      = torch.max(outputs.data, 1)
         running_correct += (preds == labels).sum().item()
 
@@ -152,9 +158,8 @@ def validate(
         images = images.to(device, non_blocking=True)
         labels = labels.to(device, non_blocking=True)
 
-        with autocast(device_type="cuda"):
-            outputs = model(images)
-            loss    = criterion(outputs, labels)
+        outputs = model(images)
+        loss    = criterion(outputs, labels)
 
         running_loss += loss.item()
         _, preds      = torch.max(outputs.data, 1)
@@ -173,12 +178,11 @@ def save_checkpoint(state: dict, directory: str, best_path: str, epoch: int, is_
         torch.save(state, best_path)
         print(f"  [Checkpoint] Best model saved → {best_path}")
 
-def load_checkpoint(path, model, optimizer, scaler, scheduler):
+def load_checkpoint(path, model, optimizer, scheduler):
     print(f"[Resume] Loading {path}")
     ckpt = torch.load(path, map_location="cpu")
     model.load_state_dict(ckpt["model"])
     optimizer.load_state_dict(ckpt["optimizer"])
-    scaler.load_state_dict(ckpt["scaler"])
     scheduler.load_state_dict(ckpt["scheduler"])
     return ckpt["epoch"] + 1, ckpt.get("best_acc", 0.0)
 
@@ -186,8 +190,11 @@ if __name__ == "__main__":
     args   = parse_args()
     set_seed(args.seed)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"[Device] {device}")
+    if not torch.cuda.is_available():
+        raise RuntimeError("CUDA is required for training. No CUDA device found.")
+
+    device = torch.device("cuda")
+    print(f"[Device] {device} ({torch.cuda.get_device_name(0)})")
 
     train_loader, val_loader = get_dataloaders(args)
 
@@ -208,13 +215,11 @@ if __name__ == "__main__":
 
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
 
-    scaler = GradScaler()
-
     start_epoch = 1
     best_acc    = 0.0
     if args.resume:
         start_epoch, best_acc = load_checkpoint(
-            args.resume, model, optimizer, scaler, scheduler
+            args.resume, model, optimizer, scheduler
         )
 
     train_loss_hist, val_loss_hist = [], []
@@ -225,7 +230,7 @@ if __name__ == "__main__":
               f"lr={optimizer.param_groups[0]['lr']:.6f}")
 
         train_loss, train_acc = train_one_epoch(
-            model, train_loader, criterion, optimizer, scaler, device
+            model, train_loader, criterion, optimizer, device
         )
         val_loss, val_acc = validate(model, val_loader, criterion, device)
 
@@ -248,7 +253,6 @@ if __name__ == "__main__":
                 "epoch":     epoch,
                 "model":     model.state_dict(),
                 "optimizer": optimizer.state_dict(),
-                "scaler":    scaler.state_dict(),
                 "scheduler": scheduler.state_dict(),
                 "best_acc":  best_acc,
             },
