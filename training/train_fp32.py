@@ -22,8 +22,8 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm import tqdm
 
-from data import build_train_holdout_split
-from model import ResNet18
+from new_structure.src.data import build_train_holdout_split
+from new_structure.src.model import ResNet18
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Train ResNet-18 on ImageNet-1K")

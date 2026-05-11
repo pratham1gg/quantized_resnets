@@ -8,7 +8,7 @@ import torchvision.transforms as T
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets
 
-from config import ExperimentConfig
+from new_structure.src.config import ExperimentConfig
 
 _IMAGENET_MEAN = [0.485, 0.456, 0.406]
 _IMAGENET_STD = [0.229, 0.224, 0.225]

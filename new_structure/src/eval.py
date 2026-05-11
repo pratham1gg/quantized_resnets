@@ -4,9 +4,9 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-from config import ExperimentConfig
-from metrics import MetricsTracker, WARMUP_BATCHES
-from precision import ensure_input_dtype
+from new_structure.src.config import ExperimentConfig
+from new_structure.utils.metrics import MetricsTracker, WARMUP_BATCHES
+from new_structure.utils.precision import ensure_input_dtype
 
 def evaluate(
     model: nn.Module,

@@ -7,8 +7,8 @@ from typing import Optional
 import torch
 import tensorrt as trt
 
-from config import ExperimentConfig
-from metrics import MetricsTracker, WARMUP_BATCHES
+from new_structure.src.config import ExperimentConfig
+from new_structure.utils.metrics import MetricsTracker, WARMUP_BATCHES
 
 _LOGGER = trt.Logger(trt.Logger.WARNING)
 

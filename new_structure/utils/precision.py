@@ -1,7 +1,8 @@
+#Converts the model to FP32 or FP16 
 import torch
 import torch.nn as nn
 
-from config import ExperimentConfig
+from new_structure.src.config import ExperimentConfig
 
 def keep_batchnorm_fp32(model: nn.Module) -> None:
     for m in model.modules():

@@ -41,8 +41,8 @@ from torch.ao.quantization import (
     MovingAveragePerChannelMinMaxObserver,
 )
 
-from data import build_train_holdout_split
-from model import ResNet18
+from new_structure.src.data import build_train_holdout_split
+from new_structure.src.model import ResNet18
 
 
 # ----------------------------- Quant specs -----------------------------

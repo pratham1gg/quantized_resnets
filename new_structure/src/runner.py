@@ -33,13 +33,13 @@ from typing import Any, Dict, Optional, Tuple
 import torch
 import torch.nn as nn
 
-from config import ExperimentConfig, set_seed
-from data import build_runner_loaders
-from model import get_model
-from precision import apply_precision
-from quant_ptq_cpu import quantize_int8_x86_pt2e
-from eval import evaluate
-from metrics import MetricsTracker
+from new_structure.src.config import ExperimentConfig, set_seed
+from new_structure.src.data import build_runner_loaders
+from new_structure.src.model import get_model
+from new_structure.utils.precision import apply_precision
+from new_structure.ptq_cpu.quant_ptq_cpu import quantize_int8_x86_pt2e
+from new_structure.src.eval import evaluate
+from new_structure.utils.metrics import MetricsTracker
 
 
 def _make_payload(cfg: ExperimentConfig, tracker: MetricsTracker) -> Dict[str, Any]:
@@ -95,9 +95,9 @@ def _run_tensorrt(
     criterion: Optional[nn.Module],
 ) -> Tuple[Dict[str, Any], MetricsTracker]:
     """3-step TRT pipeline: ONNX export → engine build → inference."""
-    from onnx_exporter import ONNXExporter
-    from trt_builder import build_engine
-    from trt_infer import trt_evaluate
+    from new_structure.utils.onnx_exporter import ONNXExporter
+    from new_structure.trt.trt_builder import build_engine
+    from new_structure.trt.trt_infer import trt_evaluate
 
     onnx_path, engine_path, calib_cache = _get_trt_paths(cfg)
 

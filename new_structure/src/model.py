@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import torchvision.models as models
 from torchvision.models import ResNet18_Weights
 
-from config import ExperimentConfig
+from new_structure.src.config import ExperimentConfig
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _DEFAULT_CHECKPOINT = _REPO_ROOT / "checkpoints" / "best.pth"
