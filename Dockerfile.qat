@@ -25,9 +25,9 @@ ENV PATH="/opt/venv/bin:$PATH" \
     VIRTUAL_ENV=/opt/venv
 
 RUN pip install --upgrade pip setuptools wheel \
- && pip install \
-        torch==2.11.0 torchvision==0.26.0 \
-        --index-url https://download.pytorch.org/whl/cu126
+ && pip install --pre \
+        torch torchvision \
+        --index-url https://download.pytorch.org/whl/nightly/cu126
 
 COPY requirements-qat.txt .
 RUN pip install -r requirements-qat.txt
