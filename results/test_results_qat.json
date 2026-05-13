@@ -1,35 +1,35 @@
 [
   {
-    "precision":"qat_int8_trt",
+    "precision":"qat_int8",
     "input_bits":1,
     "top1":61.914893617,
-    "top5":89.5744680851,
-    "lat_ms":0.7287498276,
-    "lat_std":0.2952999679
+    "top5":89.1489361702,
+    "lat_ms":8.9294793528,
+    "lat_std":2.0259217956
   },
   {
-    "precision":"qat_int8_trt",
+    "precision":"qat_int8",
     "input_bits":2,
-    "top1":74.8936170213,
-    "top5":93.4042553191,
-    "lat_ms":0.7860232403,
-    "lat_std":0.3364112571
+    "top1":75.3191489362,
+    "top5":93.1914893617,
+    "lat_ms":9.7700483908,
+    "lat_std":2.1789194667
   },
   {
-    "precision":"qat_int8_trt",
+    "precision":"qat_int8",
     "input_bits":4,
-    "top1":80.8510638298,
-    "top5":96.5957446809,
-    "lat_ms":0.7330232362,
-    "lat_std":0.2833114346
+    "top1":80.2127659574,
+    "top5":96.8085106383,
+    "lat_ms":8.5002633166,
+    "lat_std":2.0021713304
   },
   {
-    "precision":"qat_int8_trt",
+    "precision":"qat_int8",
     "input_bits":8,
-    "top1":80.2127659574,
+    "top1":80.4255319149,
     "top5":97.2340425532,
-    "lat_ms":0.7730011442,
-    "lat_std":0.3167735878
+    "lat_ms":8.9415551764,
+    "lat_std":2.1206678313
   },
   {
     "precision":"int8",
