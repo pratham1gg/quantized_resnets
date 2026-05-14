@@ -7,10 +7,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "pyfiles"))
 
-DEFAULT_CHECKPOINT_DIR = ROOT / "checkpoints" / "fp32"
-BEST_CHECKPOINT_PATH   = ROOT / "checkpoints" / "best.pth"
+DEFAULT_CHECKPOINT_DIR = ROOT / "checkpoints" / "fp32_8bit"
+BEST_CHECKPOINT_PATH   = ROOT / "checkpoints" / "fp32_8bit" / "best.pth"
 
 import numpy as np
 import PIL.ImageFile
@@ -22,8 +22,8 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm import tqdm
 
-from new_structure.src.data import build_train_holdout_split
-from new_structure.src.model import ResNet18
+from src.data import build_train_holdout_split
+from src.model import ResNet18
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Train ResNet-18 on ImageNet-1K")
