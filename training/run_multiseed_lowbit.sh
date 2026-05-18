@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -o pipefail
 
-SEEDS=(42)
+SEEDS=(1 2)
 INPUT_BITS=(2 1)
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -28,12 +28,20 @@ for bits in "${INPUT_BITS[@]}"; do
         best_path="$ckpt_dir/best.pth"
         log_file="$LOG_DIR/fp32_${bits}bit_seed_${seed}.log"
 
+        run_label="${bits}bit/seed_${seed}"
+
         echo ""
         echo "----------------------------------------"
         echo "  ${bits}-bit / seed $seed — $(date)"
         echo "  Checkpoints: $ckpt_dir"
         echo "  Log: $log_file"
         echo "----------------------------------------"
+
+        if [ -f "$best_path" ]; then
+            echo "[$run_label] SKIPPED — best.pth already exists"
+            succeeded+=("$run_label(skip)")
+            continue
+        fi
 
         python "$TRAIN_SCRIPT" \
             --input-bits "$bits" \
@@ -43,7 +51,6 @@ for bits in "${INPUT_BITS[@]}"; do
             2>&1 | tee "$log_file"
 
         exit_code=${PIPESTATUS[0]}
-        run_label="${bits}bit/seed_${seed}"
 
         if [ $exit_code -eq 0 ]; then
             echo "[$run_label] SUCCESS"

@@ -8,8 +8,17 @@ import modelopt.torch.quantization as mtq
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+_INT4_CFG = {
+    "quant_cfg": {
+        "*weight_quantizer": {"num_bits": 4, "axis": 0},
+        "*input_quantizer": {"num_bits": 8, "axis": None},
+    },
+    "algorithm": "max",
+}
+
 _QUANT_CFGS = {
     "int8": mtq.INT8_DEFAULT_CFG,
+    "int4": _INT4_CFG,
 }
 
 def get_quant_cfg(precision: str):

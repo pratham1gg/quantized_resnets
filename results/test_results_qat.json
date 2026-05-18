@@ -1,66 +1,66 @@
 [
   {
-    "precision":"qat_int8",
+    "precision":"qat_int8_trt",
     "input_bits":1,
-    "top1":61.914893617,
-    "top5":89.1489361702,
-    "lat_ms":8.9294793528,
-    "lat_std":2.0259217956
+    "top1":71.4893617021,
+    "top5":94.6808510638,
+    "lat_ms":0.761001111,
+    "lat_std":0.3117287109
   },
   {
-    "precision":"qat_int8",
+    "precision":"qat_int8_trt",
     "input_bits":2,
-    "top1":75.3191489362,
-    "top5":93.1914893617,
-    "lat_ms":9.7700483908,
-    "lat_std":2.1789194667
+    "top1":81.0638297872,
+    "top5":96.5957446809,
+    "lat_ms":0.6984938187,
+    "lat_std":0.2921759038
   },
   {
-    "precision":"qat_int8",
+    "precision":"qat_int8_trt",
     "input_bits":4,
-    "top1":80.2127659574,
+    "top1":82.1276595745,
     "top5":96.8085106383,
-    "lat_ms":8.5002633166,
-    "lat_std":2.0021713304
+    "lat_ms":0.7070091425,
+    "lat_std":0.2708616065
   },
   {
-    "precision":"qat_int8",
+    "precision":"qat_int8_trt",
     "input_bits":8,
-    "top1":80.4255319149,
-    "top5":97.2340425532,
-    "lat_ms":8.9415551764,
-    "lat_std":2.1206678313
+    "top1":82.1276595745,
+    "top5":96.3829787234,
+    "lat_ms":0.7252888465,
+    "lat_std":0.3126789048
   },
   {
     "precision":"int8",
     "input_bits":1,
-    "top1":29.3617021277,
-    "top5":60.2127659574,
-    "lat_ms":0.6686748766,
-    "lat_std":0.276
+    "top1":54.2553191489,
+    "top5":87.0212765957,
+    "lat_ms":0.6994855905,
+    "lat_std":null
   },
   {
     "precision":"int8",
     "input_bits":2,
-    "top1":53.9716312057,
-    "top5":80.2836879433,
-    "lat_ms":0.7073017099,
-    "lat_std":0.276
+    "top1":78.9361702128,
+    "top5":95.9574468085,
+    "lat_ms":0.6943491397,
+    "lat_std":null
   },
   {
     "precision":"int8",
     "input_bits":4,
-    "top1":80.8510638298,
-    "top5":96.3120567376,
-    "lat_ms":0.7319959071,
-    "lat_std":0.276
+    "top1":72.4822695035,
+    "top5":93.6879432624,
+    "lat_ms":0.7282413667,
+    "lat_std":null
   },
   {
     "precision":"int8",
     "input_bits":8,
     "top1":80.7092198582,
     "top5":96.4539007092,
-    "lat_ms":0.6723675908,
-    "lat_std":0.276
+    "lat_ms":0.6853345365,
+    "lat_std":null
   }
 ]
