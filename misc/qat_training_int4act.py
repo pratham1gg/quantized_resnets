@@ -1,3 +1,14 @@
+"""
+QAT training with INT4 weights + INT4 activations.
+
+This is an experimental config — INT4 activations (only 16 discrete levels)
+are expected to cause significant accuracy degradation.
+
+Usage:
+    python misc/qat_training_int4act.py --input-quant-bits 8 --seed 42
+    python misc/qat_training_int4act.py --input-quant-bits 4 --seed 1
+"""
+
 import argparse
 import os
 import random
@@ -14,33 +25,40 @@ import torch.optim as optim
 from torch.amp.grad_scaler import GradScaler
 from torch.utils.data import DataLoader, Subset
 
+import modelopt.torch.opt as mto
+import modelopt.torch.quantization as mtq
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pyfiles"))
 sys.path.insert(0, str(ROOT / "pyfiles" / "qat_modelopt"))
 
 from src.config import ExperimentConfig
 from src.data import build_imagenet_dataset
-from quantize import get_model, get_quant_cfg, quantize_model
 from train_utils import (
     load_checkpoint,
     save_checkpoint,
     train_one_epoch,
     validate,
 )
+from quantize import get_model
 
 DEFAULT_CHECKPOINT_DIR = ROOT / "checkpoints" / "qat"
 
+INT4_ACT_CFG = {
+    "quant_cfg": {
+        "*weight_quantizer": {"num_bits": 4, "axis": 0},
+        "*input_quantizer": {"num_bits": 4, "axis": None},
+    },
+    "algorithm": "max",
+}
+
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="ModelOpt QAT — INT8/INT4")
-    p.add_argument("--precision",       default="int8", choices=["int8", "int4"],
-                   help="Quantization precision: int8 or int4")
-    p.add_argument("--data",            default="/home/pf4636/imagenet",
-                   help="ImageNet root containing train/ and val/")
+    p = argparse.ArgumentParser(description="QAT — INT4 weights + INT4 activations")
+    p.add_argument("--data",            default="/home/pf4636/imagenet")
     p.add_argument("--checkpoint",      default=None,
-                   help="FP32 pretrained checkpoint (default: checkpoints/fp32_{bits}bit/seed_42/best.pth)")
-    p.add_argument("--checkpoint-dir",  default=str(DEFAULT_CHECKPOINT_DIR),
-                   help="Root directory for QAT checkpoints")
+                   help="FP32 pretrained checkpoint (default: checkpoints/fp32_{bits}bit/seed_{seed}/best.pth)")
+    p.add_argument("--checkpoint-dir",  default=str(DEFAULT_CHECKPOINT_DIR))
     p.add_argument("--epochs",          default=15,   type=int)
     p.add_argument("--batch-size",      default=256,  type=int)
     p.add_argument("--lr",              default=1e-4, type=float)
@@ -48,14 +66,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--weight-decay",    default=1e-4, type=float)
     p.add_argument("--workers",         default=8,    type=int)
     p.add_argument("--num-classes",     default=100,  type=int)
-    p.add_argument("--calib-batches",   default=32,   type=int,
-                   help="Calibration batches fed to mtq.quantize()")
-    p.add_argument("--input-quant-bits", default=8,  type=int,
-                   help="Input quantization bits for data transforms (1,2,4,8)")
-    p.add_argument("--resume",          default=None, type=str,
-                   help="Path to a .pth training checkpoint to resume from")
-    p.add_argument("--resume-mostate",  default=None, type=str,
-                   help="Path to the matching _mostate.pt file (required with --resume)")
+    p.add_argument("--calib-batches",   default=32,   type=int)
+    p.add_argument("--input-quant-bits", default=8,   type=int)
+    p.add_argument("--resume",          default=None, type=str)
+    p.add_argument("--resume-mostate",  default=None, type=str)
     p.add_argument("--seed",            default=42,   type=int)
     return p.parse_args()
 
@@ -104,10 +118,29 @@ def get_dataloaders(args: argparse.Namespace):
     return train_loader, val_loader
 
 
+def quantize_model(model, calib_loader, num_calib_batches, device):
+    model = model.to(device)
+
+    def forward_loop(m: nn.Module) -> None:
+        m.eval()
+        with torch.no_grad():
+            for i, (images, _) in enumerate(calib_loader):
+                if i >= num_calib_batches:
+                    break
+                m(images.to(device))
+
+    print(f"[Calibration] Running {num_calib_batches} batches for INT4w+INT4a quantizer init ...")
+    model = mtq.quantize(model, INT4_ACT_CFG, forward_loop)
+    print("[Calibration] Done — fake-quant active (INT4 weights + INT4 activations).")
+    return model
+
+
 if __name__ == "__main__":
-    args   = parse_args()
+    args = parse_args()
     if args.checkpoint is None:
-        args.checkpoint = str(ROOT / "checkpoints" / f"fp32_{args.input_quant_bits}bit" / f"seed_{args.seed}" / "best.pth")
+        args.checkpoint = str(
+            ROOT / "checkpoints" / f"fp32_{args.input_quant_bits}bit" / f"seed_{args.seed}" / "best.pth"
+        )
     set_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"[Device] {device}")
@@ -115,9 +148,8 @@ if __name__ == "__main__":
     if args.resume and not args.resume_mostate:
         raise ValueError("--resume requires --resume-mostate (path to _mostate.pt)")
 
-    device_str = device.type
-    run_name   = f"{args.precision}_in{args.input_quant_bits}b"
-    run_dir    = Path(args.checkpoint_dir) / run_name / f"seed_{args.seed}"
+    run_name = f"int4act_in{args.input_quant_bits}b"
+    run_dir  = Path(args.checkpoint_dir) / run_name / f"seed_{args.seed}"
     os.makedirs(run_dir, exist_ok=True)
     print(f"[Checkpoints] {run_dir}")
 
@@ -126,9 +158,8 @@ if __name__ == "__main__":
 
     train_loader, val_loader = get_dataloaders(args)
 
-    quant_cfg = get_quant_cfg(args.precision)
     if args.resume is None:
-        model = quantize_model(model, quant_cfg, train_loader, args.calib_batches, device)
+        model = quantize_model(model, train_loader, args.calib_batches, device)
     else:
         model = model.to(device)
 

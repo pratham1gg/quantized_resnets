@@ -1,19 +1,11 @@
 [
   {
     "qat_precision":"qat_int4",
-    "input_bits":8,
-    "top1":77.1026156942,
-    "top5":93.0985915493,
-    "lat_ms":9.3980070049,
-    "throughput":106.4055389066
-  },
-  {
-    "qat_precision":"qat_int4",
-    "input_bits":4,
-    "top1":77.444668008,
-    "top5":93.1187122736,
-    "lat_ms":9.3944073865,
-    "throughput":106.4463099014
+    "input_bits":1,
+    "top1":68.8732394366,
+    "top5":89.2152917505,
+    "lat_ms":10.016936414,
+    "throughput":99.8309222175
   },
   {
     "qat_precision":"qat_int4",
@@ -25,27 +17,27 @@
   },
   {
     "qat_precision":"qat_int4",
-    "input_bits":1,
-    "top1":68.8732394366,
-    "top5":89.2152917505,
-    "lat_ms":10.016936414,
-    "throughput":99.8309222175
-  },
-  {
-    "qat_precision":"qat_int8",
-    "input_bits":8,
-    "top1":78.0080482897,
-    "top5":93.3802816901,
-    "lat_ms":8.5053943853,
-    "throughput":117.5724434051
-  },
-  {
-    "qat_precision":"qat_int8",
     "input_bits":4,
-    "top1":78.7726358149,
-    "top5":93.4607645875,
-    "lat_ms":8.2060911359,
-    "throughput":121.8606987711
+    "top1":77.444668008,
+    "top5":93.1187122736,
+    "lat_ms":9.3944073865,
+    "throughput":106.4463099014
+  },
+  {
+    "qat_precision":"qat_int4",
+    "input_bits":8,
+    "top1":77.1026156942,
+    "top5":93.0985915493,
+    "lat_ms":9.3980070049,
+    "throughput":106.4055389066
+  },
+  {
+    "qat_precision":"qat_int8",
+    "input_bits":1,
+    "top1":68.8128772636,
+    "top5":89.3963782696,
+    "lat_ms":8.1340112184,
+    "throughput":122.940573002
   },
   {
     "qat_precision":"qat_int8",
@@ -57,10 +49,18 @@
   },
   {
     "qat_precision":"qat_int8",
-    "input_bits":1,
-    "top1":68.8128772636,
-    "top5":89.3963782696,
-    "lat_ms":8.1340112184,
-    "throughput":122.940573002
+    "input_bits":4,
+    "top1":78.7726358149,
+    "top5":93.4607645875,
+    "lat_ms":8.2060911359,
+    "throughput":121.8606987711
+  },
+  {
+    "qat_precision":"qat_int8",
+    "input_bits":8,
+    "top1":78.0080482897,
+    "top5":93.3802816901,
+    "lat_ms":8.5053943853,
+    "throughput":117.5724434051
   }
 ]

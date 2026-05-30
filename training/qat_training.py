@@ -107,7 +107,7 @@ def get_dataloaders(args: argparse.Namespace):
 if __name__ == "__main__":
     args   = parse_args()
     if args.checkpoint is None:
-        args.checkpoint = str(ROOT / "checkpoints" / f"fp32_{args.input_quant_bits}bit" / "seed_42" / "best.pth")
+        args.checkpoint = str(ROOT / "checkpoints" / f"fp32_{args.input_quant_bits}bit" / f"seed_{args.seed}" / "best.pth")
     set_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"[Device] {device}")
@@ -117,7 +117,7 @@ if __name__ == "__main__":
 
     device_str = device.type
     run_name   = f"int8_in{args.input_quant_bits}b"
-    run_dir    = Path(args.checkpoint_dir) / run_name
+    run_dir    = Path(args.checkpoint_dir) / run_name / f"seed_{args.seed}"
     os.makedirs(run_dir, exist_ok=True)
     print(f"[Checkpoints] {run_dir}")
 
