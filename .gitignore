@@ -1,8 +1,8 @@
 .venv/
 .vscode/
 __pycache__/
-checkpoints/
-engines/
+.checkpoints/
+.engines/
 
 # Experiment outputs (transient)
 runs/
