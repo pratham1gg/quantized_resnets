@@ -214,7 +214,7 @@ if __name__ == "__main__":
     bits = args.input_bits
 
     if args.checkpoint_dir is None:
-        args.checkpoint_dir = str(ROOT / "checkpoints" / f"fp32_{bits}bit")
+        args.checkpoint_dir = str(ROOT / ".checkpoints" / f"fp32_{bits}bit")
     if args.best_path is None:
         args.best_path = os.path.join(args.checkpoint_dir, "best.pth")
 

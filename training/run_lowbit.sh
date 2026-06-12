@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 TRAIN_SCRIPT="$SCRIPT_DIR/train_lowbit.py"
 LOG_DIR="$REPO_ROOT/logs"
-CKPT_ROOT="$REPO_ROOT/checkpoints"
+CKPT_ROOT="$REPO_ROOT/.checkpoints"
 
 mkdir -p "$LOG_DIR"
 

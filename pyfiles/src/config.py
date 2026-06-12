@@ -30,7 +30,7 @@ class ExperimentConfig:
     num_eval_batches: Optional[int] = None
     cpu_calib_num_batches: int = 10
 
-    output_root: str = "../runs/val_infer"
+    output_root: str = "../runs"
 
     onnx_root: str = ""
     engine_root: str = ""
@@ -80,19 +80,22 @@ class ExperimentConfig:
         if cfg.model_precision == "fp16" and not cfg.device.startswith("cuda"):
             raise ValueError("model_precision='fp16' is intended for CUDA (device='cuda').")
 
+    _BACKEND_SHORT = {
+        "pytorch": "torch",
+        "tensorrt": "trt",
+        "torchao_cpu_ptq": "torchao",
+    }
+
     def run_id(self) -> str:
         cfg = self.normalized()
+        backend_short = self._BACKEND_SHORT.get(cfg.backend, cfg.backend)
         parts = [
-            "resnet18",
-            cfg.backend,
+            backend_short,
+            "ptq",
             cfg.model_precision,
-            f"in{cfg.input_quant_bits}b",
+            f"b{cfg.input_quant_bits}",
             cfg.device.split(":")[0],
-            f"bs{cfg.batch_size}",
         ]
-        if cfg.backend == "tensorrt":
-            if cfg.trt_engine_tag:
-                parts.append(cfg.trt_engine_tag)
         return "_".join(parts)
 
     def run_dir(self) -> Path:

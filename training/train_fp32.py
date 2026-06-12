@@ -9,8 +9,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pyfiles"))
 
-DEFAULT_CHECKPOINT_DIR = ROOT / "checkpoints" / "fp32_8bit"
-BEST_CHECKPOINT_PATH   = ROOT / "checkpoints" / "fp32_8bit" / "best.pth"
+DEFAULT_CHECKPOINT_DIR = ROOT / ".checkpoints" / "fp32_8bit"
+BEST_CHECKPOINT_PATH   = ROOT / ".checkpoints" / "fp32_8bit" / "best.pth"
 
 import numpy as np
 import PIL.ImageFile

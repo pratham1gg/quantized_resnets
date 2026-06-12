@@ -3,6 +3,7 @@
 __pycache__/
 .checkpoints/
 .engines/
+delete/
 
 # Experiment outputs (transient)
 runs/

@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 TRAIN_SCRIPT="$SCRIPT_DIR/train_fp32.py"
 LOG_DIR="$REPO_ROOT/logs"
-CKPT_ROOT="$REPO_ROOT/checkpoints/fp32"
+CKPT_ROOT="$REPO_ROOT/.checkpoints/fp32"
 
 mkdir -p "$LOG_DIR"
 

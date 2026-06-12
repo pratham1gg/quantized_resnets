@@ -28,7 +28,7 @@ from train_utils import (
     validate,
 )
 
-DEFAULT_CHECKPOINT_DIR = ROOT / "checkpoints" / "qat"
+DEFAULT_CHECKPOINT_DIR = ROOT / ".checkpoints" / "qat"
 
 
 def parse_args() -> argparse.Namespace:
@@ -38,7 +38,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--data",            default="/home/pf4636/imagenet",
                    help="ImageNet root containing train/ and val/")
     p.add_argument("--checkpoint",      default=None,
-                   help="FP32 pretrained checkpoint (default: checkpoints/fp32_{bits}bit/seed_42/best.pth)")
+                   help="FP32 pretrained checkpoint (default: .checkpoints/fp32_{bits}bit/seed_42/best.pth)")
     p.add_argument("--checkpoint-dir",  default=str(DEFAULT_CHECKPOINT_DIR),
                    help="Root directory for QAT checkpoints")
     p.add_argument("--epochs",          default=15,   type=int)
@@ -107,7 +107,7 @@ def get_dataloaders(args: argparse.Namespace):
 if __name__ == "__main__":
     args   = parse_args()
     if args.checkpoint is None:
-        args.checkpoint = str(ROOT / "checkpoints" / f"fp32_{args.input_quant_bits}bit" / f"seed_{args.seed}" / "best.pth")
+        args.checkpoint = str(ROOT / ".checkpoints" / f"fp32_{args.input_quant_bits}bit" / f"seed_{args.seed}" / "best.pth")
     set_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"[Device] {device}")

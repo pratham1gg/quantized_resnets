@@ -5,7 +5,6 @@ Usage
 -----
   python bench_latency.py --backend pytorch --precision fp32 --input-bits 8
   python bench_latency.py --backend pytorch --precision fp16 --input-bits 8
-  python bench_latency.py --backend torchao_cpu_ptq --precision int8 --input-bits 8 --device cpu
   python bench_latency.py --backend tensorrt --precision int8 --input-bits 8
   python bench_latency.py --backend qat_modelopt --precision int8 --input-bits 8 --qat-ckpt qat/int8_in8b
 
@@ -49,7 +48,7 @@ OUTPUT_DIR = PROJECT_ROOT / "results" / "latency_bench"
 def parse_args():
     p = argparse.ArgumentParser(description="Latency uncertainty benchmark")
     p.add_argument("--backend", required=True,
-                   choices=["pytorch", "torchao_cpu_ptq", "tensorrt", "qat_modelopt"])
+                   choices=["pytorch", "tensorrt", "qat_modelopt"])
     p.add_argument("--precision", required=True,
                    help="Model precision: fp32, fp16, int8, fp8, int4")
     p.add_argument("--input-bits", type=int, default=8)
@@ -70,13 +69,6 @@ def _build_model_pytorch(cfg, ckpt_path):
     model = apply_precision(get_model(cfg, checkpoint_path=ckpt_path), cfg)
     return model
 
-
-def _build_model_torchao(cfg, ckpt_path):
-    from ptq_cpu.quant_ptq_cpu import quantize_int8_x86_pt2e
-    train_loader, _ = build_runner_loaders(cfg)
-    model = get_model(cfg, checkpoint_path=ckpt_path)
-    model = quantize_int8_x86_pt2e(model, train_loader, calib_num_batches=cfg.cpu_calib_num_batches)
-    return model
 
 
 def _build_model_qat(args, device):
@@ -231,7 +223,13 @@ def _bench_tensorrt(cfg, warmup, iters):
 def main():
     args = parse_args()
 
-    run_id = f"{args.backend}_{args.precision}_in{args.input_bits}b_{args.device}_bs{args.batch_size}"
+    _backend_map = {
+        "pytorch": "torch_ptq",
+        "tensorrt": "trt_ptq",
+        "qat_modelopt": "torch_qat",
+    }
+    prefix = _backend_map[args.backend]
+    run_id = f"{prefix}_{args.precision}_b{args.input_bits}_{args.device}"
     print(f"[bench_latency] run_id = {run_id}")
 
     cfg = ExperimentConfig(
@@ -249,11 +247,6 @@ def main():
 
     if args.backend == "pytorch":
         model = _build_model_pytorch(cfg, ckpt_path)
-        _, val_loader = build_runner_loaders(cfg)
-        latencies = _bench_pytorch_like(model, val_loader, args.device, args.warmup, args.iters)
-
-    elif args.backend == "torchao_cpu_ptq":
-        model = _build_model_torchao(cfg, ckpt_path)
         _, val_loader = build_runner_loaders(cfg)
         latencies = _bench_pytorch_like(model, val_loader, args.device, args.warmup, args.iters)
 
