@@ -112,20 +112,22 @@ Organized by the FP32 checkpoint they came from: `fp32_1bit/`, `fp32_2bit/`, `fp
 
 Same structure as `onnx/`. Each engine is tied to a specific GPU architecture, so these aren't portable across machines. They get rebuilt automatically if missing.
 
-### `runs/` -- raw experiment results (184 individual runs)
+### `runs/` -- raw experiment results (224 individual runs)
 
 Every single experiment produces a `result.json` in its own folder. The folder name is the run ID (e.g., `trt_ptq_int8_b2_cuda`).
 
 ```
 runs/
 ├── val/ptq/seed_{1,2,42}/{run_id}/result.json    # 84 PTQ validation runs
+├── val/qat/seed_{1,2,42}/{run_id}/result.json    # 24 QAT validation runs
 ├── test/ptq/seed_{1,2,42}/{run_id}/result.json   # 84 PTQ test runs
-├── test/qat/seed_42/{run_id}/result.json          # 12 QAT test runs
-└── cpu/{run_id}/result.json                        # 4 CPU PTQ runs
+├── test/qat/seed_{1,2,42}/{run_id}/result.json   # 28 QAT test runs
+└── cpu/{run_id}/result.json                       # 4 CPU PTQ runs
 ```
 
 - `val/ptq/` and `test/ptq/` -- 7 backend-precision combos (PyTorch FP32, PyTorch FP16, TRT FP32, TRT FP16, TRT FP8, TRT INT8, TRT INT4) x 4 input bit-widths x 3 seeds = 84 runs each.
-- `test/qat/` -- QAT models evaluated on test data via PyTorch CUDA (INT8 + INT4) and TRT (INT8 only). 12 runs.
+- `val/qat/` -- QAT models evaluated on holdout-val via PyTorch CUDA (INT8 + INT4). 24 runs (8 configs x 3 seeds).
+- `test/qat/` -- QAT models evaluated on test data via PyTorch CUDA (INT8 + INT4, 3 seeds) and TRT (INT8 only, 1 seed). 28 runs.
 - `cpu/` -- TorchAO CPU PTQ INT8 across 4 input bit-widths. No seed nesting.
 
 ### `resultsv2/` -- aggregated results (what the notebooks use)

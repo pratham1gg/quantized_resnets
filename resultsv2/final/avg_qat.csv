@@ -1,0 +1,13 @@
+method,backend,input_bits,precision,top1,top5,latency_ms,throughput
+qat,pytorch,1,int4,69.223,89.073,10.252,97.6
+qat,pytorch,2,int4,76.12,92.717,10.18,98.267
+qat,pytorch,4,int4,77.627,93.3,10.334,97.267
+qat,pytorch,8,int4,77.253,93.22,10.022,100.0
+qat,pytorch,1,int8,69.35,89.46,8.778,114.267
+qat,pytorch,2,int8,76.713,93.1,8.938,112.533
+qat,pytorch,4,int8,78.417,93.473,8.732,114.733
+qat,pytorch,8,int8,77.997,93.373,8.738,114.533
+qat,tensorrt,1,qat_int8,71.49,94.68,0.761,1314.1
+qat,tensorrt,2,qat_int8,81.06,96.6,0.698,1431.7
+qat,tensorrt,4,qat_int8,82.13,96.81,0.707,1414.4
+qat,tensorrt,8,qat_int8,82.13,96.38,0.725,1378.8
